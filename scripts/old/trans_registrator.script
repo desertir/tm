@@ -1,8 +1,0 @@
-function register(factory)
-factory:register("CMincer",				"se_zones.se_zone_anom",	"TRANS_GRAVI",		"zone_gravi_trans") --Воронка
-factory:register("CMosquitoBald",	"se_zones.se_zone_anom",	"TRANS_BUZZ",			"zone_buzz_trans") --Холодец
-factory:register("CMincer",				"se_zones.se_zone_anom",	"TRANS_MINCER",		"zone_mincer_trans") --Карусель(вверх)
-factory:register("CMosquitoBald",	"se_zones.se_zone_anom",	"TRANS_MOSQUITO",	"zone_mosquito_trans") --Трамплин
-factory:register("CMosquitoBald",	"se_zones.se_zone_anom",	"TRANS_WITCHES",	"zone_witches_trans") --Электра
-factory:register("CMosquitoBald",	"se_zones.se_zone_anom",	"TRANS_ZHARKA",		"zone_zharka_trans") --Жарка
-end
