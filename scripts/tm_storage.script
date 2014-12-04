@@ -1,0 +1,158 @@
+--ввести ли порядковую часть хранилища? типа список, который не будет записывать ключи
+--главное в том же порядке потом записать
+
+local storage = {}
+storage.timers = {}
+local last_key
+local data_rec = true
+local limit = 8000 --предельное значение пакета (8192)
+_G.add_data =
+function (key,data)
+	if key == nil or data == nil then return end
+	if data_rec then data_rec = false end
+	storage[key] = data
+end
+_G.get_data =
+function (key)
+	if key == nil then return end
+	return storage[key]
+end
+_G.remove_data =
+function (key)
+	--key = key or #storage
+	storage[key] = nil
+	if data_rec then data_rec = false end
+end
+
+function remove_all()
+	for k,v in pairs(storage) do
+		storage[k] = nil
+	end
+	storage = {}
+	data_rec = true
+end
+total_empty_size = 0
+function save_data(obj,packet)
+	if obj.id == 65535 then return end
+	total_empty_size = total_empty_size + limit - packet:w_tell() - 3
+	if data_rec then packet:w_bool(false) return end
+	
+	local key,data = next(storage,last_key)
+	local size = packet:w_tell() + tm_pk.size_var(key) + tm_pk.size_var(data) + 3
+	local count = 0
+	
+	if size <= limit and key ~= nil then
+		packet:w_bool(true) -- +1
+	else
+		packet:w_bool(false)
+		return
+	end
+	
+	repeat
+		count = count + 1 --запись
+		key,data = next(storage,key) --обновление линии
+		size = size + tm_pk.size_var(key) + tm_pk.size_var(data) --просчет места
+	until size > limit or key == nil
+	
+	packet:w_u16(count) -- +2
+	key = last_key --изза подсчета линий сбразываем ключ
+	
+	for i = 1,count do
+		key,data = next(storage,key)
+		tm_pk.write_line(packet,data,key)
+	end
+	
+	if next(storage,key) == nil then
+		data_rec = true
+		last_key = nil
+	else
+		last_key = key
+	end
+end
+
+function load_data(obj,packet,size)
+	if obj.id == 65535 then return end
+	if packet:r_elapsed() <= 0 or not packet:r_bool() then return end
+	local count,key,data = packet:r_u16()
+	for i = 1,count do
+		data,key = tm_pk.read_line(packet)
+		add_data(key,data)
+	end
+end
+--парсинг пакета, когда то было интересно, что и как там внутри
+-------------------------------------------
+function num10tonum2(a,c)
+	local b = ""
+	while a ~= 0 do
+		b = tostring(math.mod(a,2))..b
+		a = math.floor(a/2)
+	end
+	local len = 0
+	if c then
+		len = string.len(b)
+		if len > 32 then
+			len = 64 - len
+		elseif len > 16 then
+			len = 32 - len
+		elseif len > 8 then
+			len = 16 - len
+		else
+			len = 8 - len
+		end
+	end
+	b = string.rep("0",len)..b
+	return b
+end
+
+function num2tonum10(b)
+	local a = 0
+	local sqr = 0
+	while b ~= "" do
+		a = a + tonumber(string.sub(b,-1,-1))*(2^sqr)
+		sqr = sqr + 1
+		b = string.sub(b,1,-2)
+	end
+	return a
+end
+
+function parse_packet_old(pk)
+	local rp = pk:r_tell()
+	--while pk:r_elapsed() <= 0 do
+	for i = 1,20 do
+		if pk:r_elapsed() <= 0 then break end
+		local u8 = pk:r_u8()
+		local bin = num10tonum2(u8)
+		local let = string.char(u8)
+		local u16 = num2tonum10(bin..string.rep("0",8))
+		local u24 = num2tonum10(bin..string.rep("0",16))
+		local u32 = num2tonum10(bin..string.rep("0",24))
+		pcon("%s:%s:'%s',%s,%s,%s,%s",pk:r_tell()-1,num10tonum2(u8,0),let,u8,u16,u24,u32)
+	end
+	pk:r_seek(rp)
+end
+
+function parse_packet(pk)
+	local rp = pk:r_tell()
+	pk:r_seek(0)
+	for i=0,pk:w_tell()-1 do
+		local u8 = pk:r_u8()
+		local bin = num10tonum2(u8)
+		local let = string.char(u8)
+		local u16 = num2tonum10(bin..string.rep("0",8))
+		local u24 = num2tonum10(bin..string.rep("0",16))
+		local u32 = num2tonum10(bin..string.rep("0",24))
+		pcon("%s:%s:'%s',%s,%s,%s,%s",pk:r_tell()-1,num10tonum2(u8,0),let,u8,u16,u24,u32)
+	end
+	pk:r_seek(rp)
+end
+
+
+
+
+
+
+
+
+
+
+

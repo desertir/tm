@@ -1,0 +1,104 @@
+-- Изменение оригинального файла для Transmutation mod.
+-- Убрал апдейты, т.к. их просто нету в этих классах, сделал свой апдейт через актора для ТМ.
+-- Почистил ненужные свойства и их запись\чтение. Свойства были для спавна артефактов в аномалиях, но не работало свойство spawn_artefacts.
+-- Автор изменений: Desertir
+
+local list_update = {}
+--псевдо апдейт аномалий (только тех, где идет ТМ!)
+function update_anom(delta)
+	local i = 1
+	while list_update[i] do
+		if list_update[i]:update(delta) then
+			table.remove(list_update,i)
+		else
+			i = i + 1
+		end
+	end
+end
+--какая то старая функция, понятно зачем нужна, оставим
+function is_single_player_game	()
+	return (_G.alife == nil) or (alife() ~= nil) or (_G.IsGameTypeSingle == nil) or (IsGameTypeSingle() == true)
+end
+
+class "se_zone_anom" (cse_anomalous_zone)
+function se_zone_anom:__init (section) super (section) end
+function se_zone_anom:on_register()
+	cse_anomalous_zone.on_register(self)
+	self.tmid = tm.get_anom_tmid(self:section_name())
+end
+function se_zone_anom:update(delta)
+	self.tmtime = self.tmtime - delta/1000
+	if self.tmtime <= 0 then
+		tm.endspiel(self)
+		self:end_tm()
+		return true
+	end
+	return false
+end
+function se_zone_anom:STATE_Write(packet)
+	cse_anomalous_zone.STATE_Write(self, packet)
+
+	if is_single_player_game() == false then return end
+	
+	packet:w_bool(self.busy)
+	if self.busy then
+		packet:w_float(self.tmtime)
+		packet:w_stringZ(self.tmsection)
+		packet:w_u8(self.tmnorm)
+		packet:w_u8(self.tmspec)
+	end
+end
+function se_zone_anom:STATE_Read( packet, size )
+	cse_anomalous_zone.STATE_Read( self, packet, size )
+	
+	if editor() then return end
+	
+	if is_single_player_game() == false then return end
+	
+	self.busy = packet:r_bool()
+	if self.busy then
+		self.tmtime = packet:r_float()
+		self.tmsection = packet:r_stringZ()
+		self.tmnorm = packet:r_u8()
+		self.tmspec = packet:r_u8()
+		table.insert(list_update,self)
+	end
+end
+function se_zone_anom:start_tm(section,time)
+	self.busy = true
+	self.tmtime = time
+	self.tmsection = section
+	self.tmnorm = math.random(100)
+	self.tmspec = math.ceil(math.random(1,299)/100)
+	table.insert(list_update,self)
+end
+function se_zone_anom:end_tm()
+	self.busy = false
+	self.tmtime = nil
+	self.tmsection = nil
+	self.tmnorm = nil
+	self.tmspec = nil
+end
+
+class "se_zone_visual" (cse_zone_visual)
+function se_zone_visual:__init (section) super (section)
+end
+function se_zone_visual:on_register()
+	cse_zone_visual.on_register(self)
+end
+function se_zone_visual:STATE_Write(packet)
+	cse_zone_visual.STATE_Write(self, packet)
+end
+function se_zone_visual:STATE_Read( packet, size )
+	cse_zone_visual.STATE_Read( self, packet, size )
+end
+
+
+
+--' Рестрикторы
+class "se_restrictor" (cse_alife_space_restrictor)
+function se_restrictor:__init (section) super (section)
+end
+function se_restrictor:keep_saved_data_anyway()
+	return true
+end

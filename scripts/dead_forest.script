@@ -1,0 +1,51 @@
+--[[
+local t = profile_timer()
+t:start()
+t:stop()
+pcon(t:time())
+]]
+local tbl_max_lv = {}
+
+function restr(obj,p) end
+
+function insert_lv_max()
+	local gg,i = game_graph(),0
+	while gg:valid_vertex_id(i) do
+		local gv = gg:vertex(i)
+		local name_lv = alife():level_name(gv:level_id())
+		if not tbl_max_lv[name_lv] then tbl_max_lv[name_lv] = 0 end
+		local lv_id = gv:level_vertex_id()
+		if tbl_max_lv[name_lv] < lv_id then tbl_max_lv[name_lv] = lv_id end
+		--tbl_max_lv[name_lv] = (tbl_max_lv[name_lv] < lv_id and lv_id) or tbl_max_lv[name_lv]
+		i = i + 1
+	end
+	pcon(tbl_max_lv)
+end
+
+function end_blow(def)
+	level.set_weather(def)
+	db.actor:give_info_portion("blowout_finish")
+end
+
+function print_coordin()
+	local list_sect = {}
+	for i = 1,#list_sect do
+		plog(get_xml_coor(list_sect[i]))
+	end
+end
+function get_xml_coor(sect)
+	local ini = system_ini()
+	local x = ini:r_u32(sect,"inv_grid_x")*50
+	local y = ini:r_u32(sect,"inv_grid_y")*50
+	local w = ini:r_u32(sect,"inv_grid_width")*50
+	local h = ini:r_u32(sect,"inv_grid_height")*50
+	local s = string.gsub(sect,"[%.%-]","")
+	return string.format('<texture id="%s" x="%s" y="%s" width="%s" height="%s" />',s,x,y,w,h)
+end
+
+
+
+
+
+
+

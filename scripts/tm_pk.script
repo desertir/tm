@@ -1,0 +1,180 @@
+-- Модуль: tm_pk.script (Transmutation mod)
+-- Запись чисел, строк, булевых значений, векторов, таблиц и мета-таблиц в пакет.
+-- Прим.: Для мета-таблиц используется запись линии. Тип ключа и тип значения кодируются оба в 1 байт.
+-- Автор: Desertir
+-- Дата: 5.11.12
+
+local flg = {p_u8 = 0, p_u16 = 1, p_u32 = 2, p_s16 = 3, p_s32 = 4, p_flt = 5, p_str = 6, p_bool = 7, p_vec = 8, p_list = 9, p_tbl = 10, p_timer = 11}
+local method = {[flg.p_u8] = "u8", [flg.p_u16] = "u16", [flg.p_u32] = "u32", [flg.p_s16] = "s16", [flg.p_s32] = "s32", [flg.p_flt] = "float", [flg.p_str] = "stringZ", [flg.p_bool] = "bool", [flg.p_vec] = "vec3"}
+
+local function get_flag_tbl(t)
+	local len = 0
+	local is_list = true
+	
+	for k,v in pairs(t) do
+		len = len + 1
+		if is_list and k ~= len then 
+			is_list = false
+		end
+	end
+	
+	return ((is_list and flg.p_list) or flg.p_tbl),len
+end
+
+local function get_flag(var)
+	local tv = type(var)
+	if tv == "number" then
+		if math.modf(var) == var then
+			if var >= 0 then
+				if var < 256 then
+					return flg.p_u8
+				elseif var < 65536 then
+					return flg.p_u16
+				else
+					return flg.p_u32
+				end
+			else
+				if var < 32767 and var > -32768 then
+					return flg.p_s16
+				else
+					return flg.p_s32
+				end
+			end
+		else
+			return flg.p_flt
+		end
+	elseif tv == "string" then
+		return flg.p_str
+	elseif tv == "boolean" then
+		return flg.p_bool
+	elseif tv == "userdata" then
+		if var.x then
+			return flg.p_vec
+		elseif var.ctimeev then
+			return flg.p_timer
+		end
+	elseif tv == "table" then
+		return get_flag_tbl(var)
+	end
+end
+
+local function write_packet_tbl(pk,tbl,flag,len)
+	pk:w_u8(len)
+	local foo = (flag == flg.p_list and write_var) or write_line
+	for k,v in pairs(tbl) do
+		foo(pk,v,k)
+	end
+end
+
+local function write_packet_timer(pk,tim)
+	local t1,t2,t3,event,args = tim:pack()
+	pk:w_u8(t1) pk:w_u8(t2) pk:w_u8(t3)
+	pk:w_stringZ(event)
+	local count = #args
+	pk:w_u8(count)
+	for i = 1,count do
+		write_var(pk,args[i])
+	end
+end
+
+local function way_write(pk,var,flag,len)
+	if len then
+		write_packet_tbl(pk,var,flag,len)
+	elseif flag == flg.p_timer then
+		write_packet_timer(pk,var)
+	else
+		pk["w_"..method[flag]](pk,var)
+	end
+end
+
+function write_var(pk,var)
+	if var == nil then return end
+	local flag,len = get_flag(var)
+	pk:w_u8(flag)
+	way_write(pk,var,flag,len)
+end
+
+function write_line(pk,val,key)
+	local fk,lenk = get_flag(key)
+	local fv,lenv = get_flag(val)
+	pk:w_u8(fk * 16 + fv)
+	way_write(pk,key,fk,lenk)
+	way_write(pk,val,fv,lenv)
+end
+
+local function read_packet_tbl(pk,flag)
+	local len,t = pk:r_u8(),{}
+	local foo = (flag == flg.p_list and read_var) or read_line
+	for i = 1,len do
+		local val,key = foo(pk)
+		if key == nil then key = i end
+		t[key] = val
+	end
+	return t
+end
+
+local function read_packet_timer(pk)
+	local t1,t2,t3 = pk:r_u8(),pk:r_u8(),pk:r_u8()
+	local event = pk:r_stringZ()
+	local count,args = pk:r_u8(),{}
+	for i = 1,count do
+		args[i] = read_var(pk)
+	end
+	local ctime = tm_pk.unpack_ctime(t1,t2,t3)
+	tm_timer.add(ctime,event,unpack(args))
+end
+
+local function way_read(pk,flag)
+	if flag > flg.p_vec then
+		if flag == flg.p_timer then
+			return read_packet_timer(pk)
+		end
+		return read_packet_tbl(pk,flag)
+	else
+		return pk["r_"..method[flag]](pk)
+	end
+end
+
+function read_var(pk)
+	local flag = pk:r_u8()
+	return way_read(pk,flag)
+end
+
+function read_line(pk)
+	local types = pk:r_u8()
+	local fk = math.floor(types/16)
+	local fv = types - fk * 16
+	local key = way_read(pk,fk)
+	local val = way_read(pk,fv)
+	return val,key
+end
+--не учитываются: год, миллисекунда; месяц в диапозоне от 4 до 7
+function pack_ctime(ctime)
+	local y,m,d,h,mn,sc,ms = ctime:get()
+	local mnhigh = math.modf(mn/4)
+	local hhigh = math.modf(h/16)
+	local u83 = sc + (mn - mnhigh * 4) * 64
+	local u82 = mnhigh + (h - hhigh * 16) * 16
+	local u81 = hhigh + d * 2 + (m - 4) * 64
+	return u81,u82,u83
+end
+
+function unpack_ctime(u81,u82,u83)
+	local mnlow = math.modf(u83/64)
+	local sc = u83 - mnlow * 64
+	local hlow = math.modf(u82/16)
+	local mn = mnlow + (u82 - hlow * 16) * 4
+	local md = math.modf(u81/2)
+	local h = hlow + (u81 - md * 2) * 16
+	local m = math.modf(md/32)
+	local d = md - m * 32
+	local ctime = game.CTime()
+	ctime:set(2012,m + 4,d,h,mn,sc,0)
+	return ctime
+end
+
+function size_var(t)
+	local fp = fake_net_packet.fake_net_packet()
+	write_var(fp,t)
+	return fp:w_tell()
+end

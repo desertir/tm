@@ -1,0 +1,41 @@
+local con = get_console()
+local name = "mm_net_player_name"
+local def_val = "nil" --con:get_string(name)
+local reset = name.." "..def_val
+local bind_key = {}
+local key_ltx = "tm_control.ltx"
+local name_key_section = "controls"
+
+function update_control()
+	if con:get_string(name) ~= def_val then
+		bind_key[con:get_string(name)]()
+		con:execute(reset)
+	end
+end
+
+function add_control()
+	local ini = ini_file(key_ltx)
+	local number = 0
+	local valid,key,value = ini:r_line(name_key_section,number)
+	while valid do
+		local mdl,fnc = string.match(value,"([%w_]+)%.([%w_]+)")
+		
+		if mdl ~= nil and fnc ~= nil and _G[mdl] and _G[mdl][fnc] then
+			key = string.lower(key)
+			bind_key[key] = _G[mdl][fnc]
+		else
+			return pcon("Incorrect input data or function or module of non-existent")
+		end
+		
+		con:execute(string.format("bind_console %s %s %s",name,key,key))
+		
+		number = number + 1
+		valid,key,value = ini:r_line(name_key_section,number)
+	end
+end
+
+function delete_control()
+	for key,foo in pairs(bind_key) do
+		con:execute("unbind_console "..key)
+	end
+end

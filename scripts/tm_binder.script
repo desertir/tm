@@ -1,0 +1,82 @@
+--[[Биндеры.]]
+local con = get_console()
+-------------Биндер актора-----------------------------
+function net_spawn(binder,data)
+	if xrs_ai then xrs_ai.actor_net_spawn(binder) end
+	if xrd_blowout then xrd_blowout.fill_covers() end
+	tm.read_tm()
+	return true
+end
+-------------------------------------------------------
+function net_destroy(binder)
+end
+-------------------------------------------------------
+function reinit(binder)
+end
+-------------------------------------------------------
+function take_item_from_box(binder,box,item)
+end
+-------------------------------------------------------
+function level_border_enter(binder,npc,info_id)
+end
+-------------------------------------------------------
+function level_border_exit(binder,npc,info_id)
+end
+-------------------------------------------------------
+function info_callback(binder,npc,info_id)
+end
+-------------------------------------------------------
+function on_trade (binder,item,sell_bye,money)
+end
+-------------------------------------------------------
+function article_callback(binder,npc,group,name)
+end
+-------------------------------------------------------
+function on_item_take(binder,obj)
+	if xrs_ai then xrs_ai.actor_item_take(obj) end
+	rp_ammo.on_take(obj)
+end
+-------------------------------------------------------
+function on_item_drop(binder,obj)
+end
+-------------------------------------------------------
+function task_callback(binder,_task,_objective,_state)
+end
+-------------------------------------------------------
+function map_location_added_callback(binder,spot_type_str,object_id)
+end
+-------------------------------------------------------
+function update(binder,delta)
+	if xrs_ai then xrs_ai.actor_update(delta) end
+	tm_timer.update(delta)
+	se_zones.update_anom(delta)
+	tm_control.update_control()
+	sk_actor_death.is_killed() ----------------------------------------------------------
+end
+-------------------------------------------------------
+function save(binder,packet)
+end
+-------------------------------------------------------
+function load(binder,reader)
+end
+-------------Биндер актора-----------------------------
+
+-------------Биндер аномалий---------------------------
+function anom_init(anom) anom:bind_object(anom_binder(anom)) end
+-------------------------------------------------------
+class "anom_binder" (object_binder)
+function anom_binder:__init (obj) super(obj) end
+-------------------------------------------------------
+function anom_binder:net_spawn(sobj)
+	if not object_binder.net_spawn(self,sobj) then return false end
+	local id = self.object:id()
+	tm.add_rem_anom(id,true)
+	return true
+end
+-------------------------------------------------------
+function anom_binder:net_destroy()
+	local id = self.object:id()
+	tm.add_rem_anom(id,false)
+	object_binder.net_destroy(self)
+end
+-------------Биндер аномалий---------------------------

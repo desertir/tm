@@ -1,0 +1,143 @@
+function spawn_anom()
+	tm_utils.create_anom({
+	section = "zone_mincer_weak",
+	level_vertex = level.vertex_in_direction(db.actor:level_vertex_id(),db.actor:direction(),5),
+	game_vertex = db.actor:game_vertex_id()})
+	
+	tm_utils.create_anom({
+	section = "zone_witches_galantine_weak",
+	level_vertex = level.vertex_in_direction(db.actor:level_vertex_id(),db.actor:direction(),8),
+	game_vertex = db.actor:game_vertex_id()})
+end
+
+function spawn_lc()
+	tm_utils.create_lc({
+	game_vertex = 2794,
+	level_vertex = 0,
+	position = vector():set(46.61,8.1,-46.98),
+	go_game_vertex = 47,
+	go_level_vertex = 16818,
+	go_position = vector():set(-238.77,-19.91,-141.84),
+	go_direction = vector():set(0.825,0,-0.565),
+	go_level_name = "l01_escape"})
+	
+	tm_utils.create_lc({
+	game_vertex = 8,
+	level_vertex = 0,
+	position = vector():set(-243.97,-19.73,-138.42),
+	go_game_vertex = 2794,
+	go_level_vertex = 17574,
+	go_position = vector():set(43.4,7,-42.16),
+	go_direction = vector():set(0.825,0,-0.565),
+	go_level_name = "dead_forest"})
+end
+
+function add_arts()
+	--af_medusa af_soul-af_gold_fish af_ameba_slime af_cristall_flower
+	for i = 1,1 do
+		alife():create("af_cristall_flower", db.actor:position(), 1, db.actor:game_vertex_id(), db.actor:id())
+		alife():create("af_ameba_slime", db.actor:position(), 1, db.actor:game_vertex_id(), db.actor:id())
+		alife():create("af_soul", db.actor:position(), 1, db.actor:game_vertex_id(), db.actor:id())
+		alife():create("af_gold_fish", db.actor:position(), 1, db.actor:game_vertex_id(), db.actor:id())
+	end
+end
+
+function give_all_recipt()
+	local t = tm.get_list()
+	for s,dt in pairs(t) do
+		for _,info in pairs(dt.infoportion) do
+			db.actor:give_info_portion(info)
+		end
+	end
+end
+
+function run_anomaly(end_point,start_point,old_anom_id)
+	if end_point == nil then
+		end_point = db.actor:position()
+		start_point = level.vertex_position(level.vertex_in_direction(db.actor:level_vertex_id(),db.actor:direction(),10))
+	end
+	
+	if end_point:distance_to_sqr(start_point) > 2 then
+		--tm_utils.delete_obj(old_anom_id)
+		
+		local new_anom = tm_utils.create_anom({section = "zone_buzz_weak", position = start_point, game_vertex = db.actor:game_vertex_id()})
+		
+		level.client_spawn_manager():add(new_anom.id,65535,tm_utils.delete_obj,old_anom_id)
+		
+		local new_point = vector()
+		new_point:sub(end_point,start_point)
+		new_point:set_length(0.3)
+		new_point:add(start_point)
+		
+		tm_timer.start(tm_timer.real_sec,3,"testing.run_anomaly",end_point,new_point,new_anom.id)
+	end
+end
+
+function start_blow() db.actor:give_info_portion("start_blowout") end
+function finish_blow() db.actor:give_info_portion("finish_blowout") end
+
+function wtf()
+	local npc=level.object_by_id(id)
+	if npc == nil then
+		pcon("all right")
+	else
+		pcon("oppa")
+		pcon(npc:id())
+	end
+end
+-- function end_near_lv(param1,id,obj)
+	-- local sim = alife()
+	-- local sobj = sim:object(id)
+	-- pcon(sobj.m_level_vertex_id)
+	-- sim:release(sobj)
+-- end
+--[[
+function print_coordin()
+	local list_sect = {
+	--AMK
+	"af_buliz",
+	"af_spirit_1","af_spirit_2","af_spirit_3","af_spirit_4",
+	"af_cry_1","af_cry_2","af_cry_3",
+	"af_babka_1","af_babka_2","af_babka_3",
+	"af_pudd_1","af_pudd_2","af_pudd_3","af_pudd_4",
+	"af_dik_1","af_dik_2","af_dik_3","af_dik_4",
+	"af_kol_1","af_kol_2","af_kol_3","af_kol_4",
+	"af_armor_1","af_armor_2","af_armor_3","af_armor_4",
+	"af_simbion",
+	--SAP
+	"af_fire_loop",
+	"af_generator",
+	"af_glass",
+	"af_inferno",
+	"af_kokon",
+	"af_medal",
+	"af_orbital",
+	"af_phantom",
+	"af_prisoska",
+	"af_sandstown",
+	"af_serafim",
+	"af_sos",
+	"af_toxic",
+	--GSC
+	"af_medusa","af_cristall_flower","af_night_star",
+	"af_vyvert","af_gravi","af_gold_fish",
+	"af_drops","af_fireball","af_cristall",
+	"af_blood","af_mincer_meat","af_soul",
+	"af_electra_sparkler","af_electra_flash","af_electra_moonlight",
+	"af_ameba_slime","af_ameba_slug","af_ameba_mica",
+	"af_dummy_spring","af_dummy_dummy","af_dummy_battery","af_dummy_pellicle","af_dummy_glassbeads",
+	"af_rusty_thorn","af_rusty_kristall","af_rusty_sea-urchin",
+	"af_fuzz_kolobok"}
+	for i = 1,#list_sect do
+		plog(get_xml_coor(list_sect[i]))
+	end
+end
+function get_xml_coor(sect)
+	local ini = system_ini()
+	local x = ini:r_u32(sect,"inv_grid_x")*50
+	local y = ini:r_u32(sect,"inv_grid_y")*50
+	local w = ini:r_u32(sect,"inv_grid_width")*50
+	local h = ini:r_u32(sect,"inv_grid_height")*50
+	local s = string.gsub(sect,"[%.%-]","")
+	return string.format('<texture id="%s" x="%s" y="%s" width="%s" height="%s"/>',s,x,y,w,h)
+end]]

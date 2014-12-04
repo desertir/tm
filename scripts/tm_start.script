@@ -1,0 +1,3 @@
+--скрипт выполняется при старте сталкера
+tm_modify_method.add_all_method()
+tm_control.add_control()

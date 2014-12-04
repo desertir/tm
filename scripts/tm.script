@@ -1,0 +1,471 @@
+--[[
+Основные функции трансмутации
+]]
+anomalies = {} --серверные объекты аномалий
+local tmids = {"mosquito","gravi","mincer","zharka","witches","buzz"}
+local list_trans = {} --список ТМ из конфигов
+local list_comp = {} --список соответствий тидов аномалий с секциями ТМ
+for i = 1,#tmids do list_comp[i] = {} end
+local maxdist = 5 --максимальная дистанция для ТМ
+local maxdistsqr = maxdist * maxdist --используется квадрат максимальной дистанции
+local path_list = "misc\\transmutation.ltx" --путь до конфига
+local list_of_lists = "lists_trans" --имя главного списка в конфиге
+function get_list() return list_trans end
+function endspiel(sobj)
+	local data_trans = list_trans[sobj.tmsection]
+	local list_arts,dgr = "",false
+	if data_trans.chance_norm >= sobj.tmnorm then
+		list_arts = "final_arts"
+	elseif data_trans.chance_norm + data_trans.chance_degr >= sobj.tmnorm then
+		list_arts = "degr_arts"
+	else
+		return
+	end
+	if not next(data_trans[list_arts]) then
+		dgr = true
+		data_trans[list_arts] = {[get_name_drate(sobj.tmid,sobj.tmspec)] = 1}
+	end
+	local gv = sobj.m_game_vertex_id
+	local lv = sobj.m_level_vertex_id
+	local center = sobj.position
+	local pos = vector()
+	pos.y = center.y + 0.5 + math.random()
+	for sect,num in pairs(data_trans[list_arts]) do
+		for i = 1,num do
+			pos.x = center.x + math.random() * math.random(-2,2)
+			pos.z = center.z + math.random() * math.random(-2,2)
+			local obj = alife():create(sect,pos,lv,gv)
+			level.map_add_object_spot_ser(obj.id,"level_changer","")
+			kick_art_begin(obj,vector():sub(pos,center))
+			
+		end
+	end
+	if dgr then data_trans[list_arts] = {} end
+end
+
+function kick_art_begin(sobj,dir)
+	local hit = hit()
+	hit.direction = dir
+	hit.direction.y = hit.direction.y + 1
+	hit.draftsman = db.actor
+	hit.impulse = math.random(100,130)
+	hit.power = 0
+	hit.type = hit.strike
+	--hit:bone("")
+	--tm_timer.start_ms(300,"tm.kick",{sobj.id,hit})
+	level.client_spawn_manager():add(sobj.id,65535,kick,hit)
+end
+
+function kick(hit,id,obj) obj:hit(hit) end
+
+
+function get_item_image(section,number)
+	local image = CUIStatic()
+	image:Init(string.gsub(section,"[%.%-]",""),0,0,70,50)
+	image:SetTextX(55) image:SetTextY(20)
+	image:SetFont(GetFontMedium()) --image:SetTextAlign(CGameFont.alLeft)
+	image:SetText("x"..number)
+	return image
+end
+
+function start_tmwnd()
+	local wnd = tm_window()
+	wnd:open_close()
+	wnd:reset_check()
+	wnd:update_list()
+end
+
+class "tm_item" (CUIListItemEx)
+function tm_item:__init(text) super()
+	self:SetWndRect(0,0,172,18)
+	
+	self.fn = CUIStatic()
+	self.fn:SetAutoDelete(true)
+	
+	self:AttachChild(self.fn)
+	self.tmsect = text
+	self.fn:SetWndRect(2,0,172,18)
+	self.fn:SetTextST(text)
+	--self.fn:SetFont(GetFontLetterica18Russian())
+	self.fn:SetTextColor(255,216,186,140)
+end
+
+class "tm_item_image" (CUIStatic)
+function tm_item_image:__init(x,y,sect,num) super()
+	self:Init(string.gsub(sect,"[%.%-]",""),x,y,50,50)
+	self:SetTextX(0)
+	self:SetTextY(40)
+	self:SetTextAlign(CGameFont.alRight)
+	self:SetFont(GetFontSmall())
+	self:SetText("x"..num)
+end
+
+class "tm_window" (CUIScriptWnd)
+function tm_window:__init() super()
+	self:Init(0,0,1024,768)
+	self.state = true -- true - доступные, false - известные
+	local xml = CScriptXmlInit()
+  xml:ParseFile("ui_tm_window.xml")
+	
+	xml:InitFrame("background:frame",self)
+	xml:InitFrame("background:list_frame",self)
+	local t = {"init","final","degr"}
+	for i = 1,#t do
+		xml:InitFrame("background:"..t[i].."_art",self)
+	end
+	
+	xml:InitStatic("background:lup",self)
+	xml:InitStatic("background:top",self)
+	xml:InitStatic("background:bottom",self)
+	xml:InitStatic("background:descr",self)
+	xml:InitStatic("background:top_list",self)
+	
+	self.name_descr = xml:InitStatic("notes:name_descr",self)
+	self.descr = xml:InitStatic("notes:descr",self)
+	xml:InitStatic("notes:filters",self)
+	xml:InitStatic("notes:change_list",self)
+	xml:InitStatic("notes:final",self)
+	xml:InitStatic("notes:degr",self)
+	
+	self.list = xml:InitList("list",self)
+	self.list:EnableScrollBar(true)
+	self.list:ShowSelectedItem(true)
+	self:Register(self.list,"list")
+	self:AddCallback("list",ui_events.LIST_ITEM_CLICKED,self.update_descr,self)
+	
+	self.check = {}
+	for i = 1,6 do
+		local name = tmids[i]
+		self.check[i] = xml:InitCheck("labels:"..name,self)
+		self:Register(self.check[i],"check_"..name)
+		self:AddCallback("check_"..name,ui_events.BUTTON_CLICKED,self.update_list,self)
+	end
+	------------
+	self.check.available = xml:InitCheck("labels:available",self)
+	self:Register(self.check.available,"check_available")
+	self:AddCallback("check_available",ui_events.BUTTON_CLICKED,self.change_state,self)
+	
+	self.check.known = xml:InitCheck("labels:known",self)
+	self:Register(self.check.known,"check_known")
+	self:AddCallback("check_known",ui_events.BUTTON_CLICKED,self.change_state,self)
+	------------
+	self.btn_start = xml:Init3tButton("button:start",self)
+	self:Register(self.btn_start,"btn_start")
+	self:AddCallback("btn_start",ui_events.BUTTON_CLICKED,self.start,self)
+	
+	self:Register(xml:Init3tButton("button:exit",self),"btn_exit")
+	self:AddCallback("btn_exit",ui_events.BUTTON_CLICKED,self.open_close,self)
+	------------
+	self.scroll = {}
+	for i = 1,#t do
+		self.scroll[t[i]] = xml:InitScrollView("scroll:"..t[i],self)
+	end
+end
+function tm_window:start()
+	local sel_item = self:get_sel_item()
+	if not sel_item then return end
+	local tmsect = sel_item.tmsect
+	local data_trans = list_trans[tmsect]
+	local trans_time = data_trans.time_def + math.random(-data_trans.time_rnd,data_trans.time_rnd)
+	local anom = anomalies[self.list_tmsect[tmsect]]
+	anom:start_tm(tmsect,trans_time)
+	remove_arts(tmsect,self.inv_arts)
+	self:update_list()
+end
+function tm_window:change_state()
+	local av = self.check.available:GetCheck()
+	if self.state ~= av then
+		self.check.known:SetCheck(not av)
+		self.state = av
+	else
+		self.check.available:SetCheck(not av)
+		self.state = not av
+	end
+	self:update_list()
+	self.btn_start:Enable(self.state)
+end
+function tm_window:update_descr()
+	local sel_item = self:get_sel_item()
+	local name_tm,id_descr = "",""
+	self.scroll.save = nil
+	for name,scr in pairs(self.scroll) do scr:Clear() end
+	if sel_item then
+		local data_trans = list_trans[sel_item.tmsect]
+		name_tm = sel_item.fn:GetText()
+		id_descr = data_trans.description
+		local s = {}
+		local t = {"init","final","degr"}
+		for i = 1,#t do
+			local kind = t[i]
+			local sections = data_trans[kind.."_arts"]
+			for sect,num in pairs(sections) do
+				local image = get_item_image(sect,num)
+				self.scroll[kind]:AddWindow(image,false)
+				s[kind..sect..num] = image
+			end
+		end
+		self.scroll.save = s
+	end
+	self.name_descr:SetText(name_tm)
+	self.descr:SetTextST(id_descr)
+end
+function tm_window:reset_check()
+	for i = 1,6 do
+		self.check[i]:SetCheck(true)
+	end
+	self.state = true
+	self.check.available:SetCheck(true)
+	self.check.known:SetCheck(false)
+end
+function tm_window:update_list()
+	local filters = {}
+	for i = 1,6 do
+		filters[i] = self.check[i]:GetCheck()
+	end
+	self.list:RemoveAll()
+	self.list_tmsect,self.inv_arts = get_list_tm(self.state,filters)
+	for tmsect,id_anom in pairs(self.list_tmsect) do
+		self.list:AddItem(tm_item(tmsect))
+	end
+	self:update_descr()
+end
+function tm_window:get_sel_item()
+	local sel_index = self.list:GetSelectedItem()
+	local sel_item = self.list:GetItem(sel_index)
+	return sel_item
+end
+function tm_window:open_close()
+	level.start_stop_menu(self,true)
+end--[[
+function main_menu:OnKeyboard(dik, keyboard_action)
+	CUIScriptWnd.OnKeyboard(self,dik,keyboard_action)
+	
+	if dik == DIK_keys.DIK_ESCAPE then
+		
+	end
+	return true
+end--]]
+
+function get_list_tm(state,filters)
+	local list_tmsect = {}
+	local inv_arts = {}
+	
+	if state then
+	--------------------------------------
+	inv_arts = get_inv_arts()
+	local ids_anom = get_near_anoms()
+	for id_anom,tmid in pairs(ids_anom) do
+		if filters[tmid] then
+			local list_tmsect_anom,i = list_comp[tmid],1
+			while list_tmsect_anom[i] do
+				local tmsect = list_tmsect_anom[i]
+				if not list_tmsect[tmsect] and --секция не залинкована
+				check_infos(tmsect) and --есть инфа
+				enow_arts(tmsect,inv_arts) then --есть все арты
+					list_tmsect[tmsect] = id_anom --линкуем секцию на ид аномалии
+				end
+				i = i + 1
+			end
+		end
+	end
+	--------------------------------------
+	else
+	--------------------------------------
+	for tmid = 1,6 do
+		if filters[tmid] then
+			local list_tmsect_anom,i = list_comp[tmid],1
+			while list_tmsect_anom[i] do
+				local tmsect = list_tmsect_anom[i]
+				if check_infos(tmsect) then
+					list_tmsect[tmsect] = -1
+				end
+				i = i + 1
+			end
+		end
+	end
+	--------------------------------------
+	end
+	return list_tmsect,inv_arts
+end
+
+function get_near_anoms()
+	local ids = {}
+	local pos_actor = db.actor:position()
+	for id,sobj in pairs(anomalies) do
+		if sobj.online and not sobj.busy and pos_actor:distance_to_sqr(sobj.position) < maxdistsqr then
+			ids[id] = sobj.tmid
+		end
+	end
+	return ids
+end
+
+function get_inv_arts()
+	--local ids,counts = {},{}
+	local arts = {}
+	db.actor:inventory_for_each(
+		function (obj,npc)
+			if tm_utils.is_artefact(obj) then
+				local sect = obj:section()
+				arts[sect] = arts[sect] or {}
+				table.insert(arts[sect],obj:id())
+				
+				--ids[obj:id()] = sect
+				--counts[sect] = (counts[sect] or 0) + 1
+			end
+		end
+	)
+	--return ids,counts
+	return arts
+end
+
+function remove_arts(tmsect,arts)
+	local need_arts = list_trans[tmsect].init_arts
+	for sect,count in pairs(need_arts) do
+		for i = 1,count do
+			tm_utils.delete_obj(arts[sect][i])
+		end
+	end
+end
+
+function check_infos(section)
+	for _,id_info in pairs(list_trans[section].infoportion) do
+		if not has_alife_info(id_info) then return false end
+	end
+	return true
+end
+
+function enow_arts(tmsect,arts)
+	local init_arts = list_trans[tmsect].init_arts
+	for sect_art,count in pairs(init_arts) do
+		if not arts[sect_art] or #arts[sect_art] < count then
+			return false
+		end
+	end
+	return true
+end
+
+function read_tm(ini,list)
+	local number,foo,valid,key = 0
+	
+	if ini == nil then
+		ini = ini_file(path_list)
+		list = list_of_lists
+		foo = read_tm
+	else
+		foo = add_tm
+	end
+	
+	valid,key = ini:r_line(list,number)
+	while valid and ini:section_exist(key) do
+		foo(ini,key)
+		number = number + 1
+		valid,key = ini:r_line(list,number)
+	end
+end
+
+function add_tm(ini,tmsect)
+	list_trans[tmsect] = {}
+	local data_trans = list_trans[tmsect]
+	--data_trans.tmsect = tmsect
+	data_trans.init_arts = get_sections_ini(ini,tmsect,"init_arts")
+	data_trans.degr_arts = get_sections_ini(ini,tmsect,"degr_arts")
+	data_trans.final_arts = get_sections_ini(ini,tmsect,"final_arts")
+	data_trans.time_def = get_time_ini(ini,tmsect,"time",1000)
+	data_trans.time_rnd = get_time_ini(ini,tmsect,"shift_time",0)
+	data_trans.chance_degr = get_u32_ini(ini,tmsect,"degr_chance",0)
+	data_trans.chance_norm = get_u32_ini(ini,tmsect,"norm_chance",100 - data_trans.chance_degr)
+	data_trans.infoportion = get_list_ini(ini,tmsect,"information")
+	data_trans.description = get_string_ini(ini,tmsect,"description","")
+	local list_anom = get_list_ini(ini,tmsect,"anomalies")
+	for _,sect in pairs(list_anom) do
+		table.insert(list_comp[get_anom_tmid(sect)],tmsect)
+	end
+end
+
+function get_string_ini(ini,section,key,def)
+	local str = def
+	if ini:line_exist(section,key) then
+		str = ini:r_string(section,key)
+	end
+	return str
+end
+
+function get_time_ini(ini,section,key,def)
+	local str_time,t = "",{}
+	if ini:line_exist(section,key) then
+		str_time = ini:r_string(section,key)
+	else
+		return def
+	end
+	for str_num in string.gfind(str_time,"([%d]+)%:*") do
+		table.insert(t,tonumber(str_num))
+	end
+	return ((t[1] * 60 + t[2]) * 60 + t[3]) --/ level.get_time_factor())
+end
+
+function get_sections_ini(ini,section,key)
+	local t = {}
+	if ini:line_exist(section,key) then
+		for sec_art,count in string.gfind(ini:r_string(section,key),"([%w_]+)%=*(%d*)%,*") do
+			if count == "" then count = 1 else count = tonumber(count) end
+			t[sec_art] = count
+		end
+	end
+	return t
+end
+
+function get_u32_ini(ini,section,key,def)
+	local u32 = def
+	if ini:line_exist(section,key) then
+		u32 = ini:r_u32(section,key)
+	end
+	return u32
+end
+
+function get_list_ini(ini,section,key)
+	if not ini:line_exist(section,key) then return {} end
+	return parse_names(ini:r_string(section,key))
+end
+
+function add_rem_anom(id,add)
+	if add then
+		anomalies[id] = alife():object(id)
+	else
+		anomalies[id] = nil
+	end
+end
+
+function get_anom_tmid(section)
+	for i = 1,#tmids do
+		if string.find(section,tmids[i]) then return i end
+	end
+end
+
+function get_name_drate(tmid,number)
+	return "af_"..tmids[tmid].."_drate_"..number
+end
+
+
+
+--[[
+function tm_window:edit_text_changed() --write
+	pcon("edit_text_changed")
+end
+function tm_window:edit_text_commit() --enter
+	self.edit:SetText(string.format("%s\n",self.edit:GetText()))
+	pcon(self.edit:GetTextAlignment())
+end
+
+self.edit = CUIEditBoxEx()
+	--self.edit:Init(128,384,178,21)
+	self.edit:Init(128,384,160,160)
+	--self.edit:InitTexture("ui\\ui_cm_connection_error")
+	--self.edit:InitTexture("ui_brokenline")
+	self.edit:InitTexture("ui_icons_PDA_dialog")
+	self.edit:SetTextPosY(-64)
+	self.edit:SetNumbersOnly(true)
+	self:AttachChild(self.edit)
+	self:Register(self.edit,"wnd_edit")
+	--self:AddCallback("wnd_edit",ui_events.EDIT_TEXT_CHANGED,self.edit_text_changed,self)
+	self:AddCallback("wnd_edit",ui_events.EDIT_TEXT_COMMIT,self.edit_text_commit,self)
+]]

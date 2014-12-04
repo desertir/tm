@@ -1,0 +1,112 @@
+-- Модуль: tm_modify_method.script (Transmutation mod)
+-- Назначение: Модификация методов классов без непосредственной правки в модулях.
+-- Автор: Desertir
+-- Дата: 1.12.12
+local function isnot_valid(nm,nc,nmt,nam,naf)
+	if     nm			== nil then pcon("TMM_1") return true
+	elseif nc			== nil then pcon(nm.."2") return true
+	elseif nam			== nil then pcon(nc.."3") return true
+	elseif naf			== nil then pcon(nc.."4") return true
+	elseif nmt			== nil then pcon(nc.."5") return true
+	elseif _G[nm]		== nil then pcon(nc.."6") return true
+	elseif _G[nm][nc]	== nil then pcon(nc.."7") return true
+	elseif _G[nam]		== nil then pcon(nc.."8") return true
+	elseif _G[nam][naf]	== nil then pcon(nc.."9") return true
+	end
+	return false
+end
+
+local function modify_method(
+			name_module,
+			name_class,
+			name_method,
+			name_add_module,
+			name_add_func,
+			do_first,
+			name_base_class,
+			returns)
+
+	if isnot_valid(name_module,name_class,name_method,name_add_module,name_add_func) then return end
+	
+	local class = _G[name_module][name_class]
+	local old_method = class[name_method]
+	
+	if old_method == nil then
+		if type(name_base_class) == "string" then
+			base_class = _G[name_base_class]
+			if base_class then
+				old_method = base_class[name_method]
+				if old_method == nil then
+					pcon(name_class.."10") return
+				end
+			else
+				pcon(name_class.."11") return
+			end
+		else
+			pcon(name_class.."12") return
+		end
+	end
+	
+	local new_method
+	
+	if do_first then new_method =
+		function(...)
+			_G[name_add_module][name_add_func](...)
+			old_method(...)
+		end
+	else new_method =
+		function(...)
+			local a = old_method(...)
+			if a == returns then return _G[name_add_module][name_add_func](...)
+			else return a end
+		end
+	end
+	
+	class[name_method] = new_method
+end
+--tm_storage
+local function add_save_load_data(name_module,name_class,name_base_class)
+	modify_method(name_module,name_class,"STATE_Write","tm_storage","save_data",false,name_base_class)
+	modify_method(name_module,name_class,"STATE_Read","tm_storage","load_data",false,name_base_class)
+end
+--tm_binder
+local function add_actor_binder(name_method,returns)
+	modify_method("bind_stalker","actor_binder",name_method,"tm_binder",name_method,false,"object_binder",returns)
+end
+
+function add_all_method()
+	-- add_save_load_data("se_artefact",	"se_artefact",							"cse_alife_item_artefact")
+	
+	-- add_save_load_data("se_car",			"se_car",										"cse_alife_car")
+	-- add_save_load_data("se_car",			"se_heli",									"cse_alife_helicopter")
+	
+	-- add_save_load_data("se_item",			"se_outfit",								"cse_alife_item_custom_outfit")
+	-- add_save_load_data("se_item",			"se_weapon",								"cse_alife_item_weapon")
+	-- add_save_load_data("se_item",			"se_weapon_shotgun",				"cse_alife_item_weapon_shotgun")
+	-- add_save_load_data("se_item",			"se_weapon_magazined",			"cse_alife_item_weapon_magazined")
+	-- add_save_load_data("se_item",			"se_weapon_magazined_w_gl",	"cse_alife_item_weapon_magazined_w_gl")
+	-- add_save_load_data("se_item",			"se_item",									"cse_alife_item")
+	-- add_save_load_data("se_item",			"se_item_torch",						"cse_alife_item_torch")
+	add_save_load_data("se_item",			"se_physic",								"cse_alife_object_physic")
+	
+	-- add_save_load_data("se_monster",	"se_monster")
+	-- add_save_load_data("se_respawn",	"se_respawn")
+	-- add_save_load_data("se_stalker",	"se_stalker")
+	-- add_save_load_data("se_zones",		"se_zone_anom")
+	-- add_save_load_data("se_zones",		"se_zone_visual")
+	
+	add_actor_binder("net_spawn",true)
+	add_actor_binder("on_item_take")
+	add_actor_binder("update")
+	--[[
+	modify_method("bind_stalker",	"actor_binder",	"net_spawn",				"tm_binder",	"net_spawn",	"object_binder",	true)
+	modify_method("bind_stalker",	"actor_binder",	"info_callback",		"tm_binder",	"info_callback",)
+	modify_method("bind_stalker",	"actor_binder",	"article_callback",	"tm_binder",	"article_callback")
+	modify_method("bind_stalker",	"actor_binder",	"on_item_take",			"tm_binder",	"on_item_take")
+	modify_method("bind_stalker",	"actor_binder",	"on_item_drop",			"tm_binder",	"on_item_drop")
+	modify_method("bind_stalker",	"actor_binder",	"update",						"tm_binder",	"update")
+	modify_method("bind_stalker",	"actor_binder",	"save",							"tm_binder",	"save")
+	modify_method("bind_stalker",	"actor_binder",	"load",							"tm_binder",	"load")
+	--]]
+	modify_method("ui_main_menu","main_menu","OnMessageQuitWin","tm_control","delete_control",true)
+end

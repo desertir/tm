@@ -1,0 +1,293 @@
+-- Схема убегания в укрытия неписей
+-- Подключение в modules и xr_logic
+-- Автор: Desertir
+
+ev_blow_is_blowout = 20000
+ev_blow_in_cover = ev_blow_is_blowout + 1
+ev_blow_in_lv = ev_blow_is_blowout + 2
+ev_blow_fake = ev_blow_is_blowout + 3
+
+act_blow_go_cover = 20000
+act_blow_go_lv = act_blow_go_cover + 1
+act_blow_wait = act_blow_go_cover + 2
+
+--укрытия
+local covers = {}
+function fill_covers()
+	local ini = ini_file("misc\\covers.ltx")
+	local levels = {"l01_escape","l02_garbage","l03_agroprom","l03u_agr_underground","l04_darkvalley","l04u_labx18","l05_bar","l06_rostok","l07_military","l08_yantar","l08u_brainlab","l10_radar","l11_pripyat","l12_stancia","l12_stancia_2","l12u_control_monolith","l12u_sarcofag","dead_forest"}
+	for i = 1,#levels do
+		local number,level_name = 0,levels[i]
+		local valid,cover_name,groups = ini:r_line(level_name,number)
+		covers[level_name] = {}
+		local level_covers = covers[level_name]
+		while valid do
+			for group_name in string.gfind(groups,"([%w%_]+)%,*") do
+				if not level_covers[group_name] then level_covers[group_name] = {} end
+				table.insert(level_covers[group_name],cover_name)
+			end
+			number = number + 1
+			valid,cover_name,groups = ini:r_line(level_name,number)
+		end
+	end
+end
+
+--EVALUATORS
+--если идет выброс, в укрытии ли мы?
+class "evaluator_in_cover" (property_evaluator)
+function evaluator_in_cover:__init(name,storage) super(nil,name)
+	self.st = storage
+end
+function evaluator_in_cover:evaluate()
+	return self.st.is_blowout and npc_in_cover(self.st)
+end
+--если идет выброс, в нужной ли точке мы?
+class "evaluator_in_lv" (property_evaluator)
+function evaluator_in_lv:__init(name,storage) super(nil,name)
+	self.st = storage
+end
+function evaluator_in_lv:evaluate()
+	return self.st.is_blowout and (self.object:level_vertex_id() == self.st.wait_lv)
+end
+--эвалуатор для выброса
+class "evaluator_is_blow" (property_evaluator)
+function evaluator_is_blow:__init(name,storage) super(nil,name)
+	self.st = storage
+end
+function evaluator_is_blow:evaluate()
+	local blowout = has_alife_info("start_blowout")
+	if blowout ~= self.st.is_blowout then --состояние изменилось (либо начало либо конец)
+		if blowout then --если выброс начался
+			xr_kamp.kamp_stalkers[self.object:id()] = nil --камп - не камп, пофиг, обниляем чтоб мог говорить
+			local action = self.object:motivation_action_manager():current_action()
+			action:add_precondition(world_property(ev_blow_is_blowout,false)) --затыкаем текущий экшен
+			self.st.last_action = action
+		else --если это конец выброса
+			self.st.last_action:remove_precondition(ev_blow_is_blowout) --убираем затычку
+		end
+		self.st.is_blowout = blowout
+	end
+	return self.st.is_blowout
+end
+
+--ACTIONS
+--идем в укрытие
+class "action_go_cover" (action_base)
+function action_go_cover:__init (action_name,storage) super (nil,action_name)
+	self.st = storage
+end
+function action_go_cover:initialize()
+	action_base.initialize(self)
+	self.object:set_path_type(game_object.level_path)
+	--self.object:set_desired_position()
+	--self.object:set_desired_direction()
+	xr_sound.set_sound(self.object,nil)
+	stop_play_sound(self.object)
+	--экшен начался, значит один из флагов или оба тру, передаем флаг выброса
+	self.st.look_lv,self.st.wait_lv = get_cover_lv(self.st)
+	self.st.llv_point = level.vertex_position(self.st.look_lv)
+	self:execute() --ставим состояние
+	--pcon("cover_name [%s]; look_lv [%s]; llv_point [x:%s,y:%s,z:%s]",self.st.cover_name,self.st.look_lv,self.st.llv_point.x,self.st.llv_point.y,self.st.llv_point.z)
+	-- if not self.object:accessible(self.st.wait_lv) then
+		-- self.st.wait_lv = self.object:accessible_nearest(level.vertex_position(self.st.wait_lv),vector():set(0,0,0))
+	-- end
+	self.object:set_dest_level_vertex_id(self.st.look_lv)
+	-- self.object:set_dest_level_vertex_id(self.st.wait_lv)
+	-- local pp = level.vertex_in_direction(self.st.look_lv,vector():set(math.random(-1,1),0,math.random(-1,1)),math.random(0,1))
+	-- self.object:set_desired_direction(vector():sub(level.vertex_position(pp),level.vertex_position(self.st.wait_lv)))
+end
+function action_go_cover:execute()
+	action_base.execute(self)
+	
+	local dist = self.st.llv_point:distance_to_sqr(self.object:position())
+	local old_state_moving = self.st.state_moving
+	if dist < 16 then
+		self.st.state_moving = "walk"
+	elseif dist < 64 then
+		self.st.state_moving = "run"
+	else
+		self.st.state_moving = "sprint"
+	end
+	if old_state_moving ~= self.st.state_moving then
+		state_mgr.set_state(self.object,self.st.state_moving)
+	end
+end
+function action_go_cover:finalize()
+	action_base.finalize(self)
+end
+--идем на нужный лв
+class "action_go_lv" (action_base)
+function action_go_lv:__init (action_name,storage) super (nil,action_name)
+	self.st = storage
+end
+function action_go_lv:initialize()
+	action_base.initialize(self)
+	
+	state_mgr.set_state(self.object,"walk")
+	
+
+	--pcon("wait_lv [%s]",self.st.wait_lv)
+	--if not self.object:accessible(self.st.wait_lv) then
+		--self.st.wait_lv = self.object:accessible_nearest(level.vertex_position(self.st.wait_lv),vector():set(0,0,0))
+	--end
+	
+	self.object:set_dest_level_vertex_id(self.st.wait_lv)
+	local pp = level.vertex_in_direction(self.st.look_lv,vector():set(math.random(-1,1),0,math.random(-1,1)),math.random(0,0.5))
+	self.object:set_desired_direction(vector():sub(level.vertex_position(pp),level.vertex_position(self.st.wait_lv)))
+end
+function action_go_lv:execute()
+	action_base.execute(self)
+end
+function action_go_lv:finalize()
+	action_base.finalize(self)
+end
+--сидим и ждем
+class "action_blow_wait" (action_base)
+function action_blow_wait:__init (action_name,storage) super (nil,action_name)
+	self.a = storage
+end
+function action_blow_wait:initialize()
+	action_base.initialize(self)
+	--self.object:set_desired_position()
+	--self.object:set_desired_direction()
+	state_mgr.set_state(self.object,"sit_ass")
+end
+function action_blow_wait:execute()
+	action_base.execute(self)
+end
+function action_blow_wait:finalize()
+	action_base.finalize(self)
+end
+
+
+function set_scheme(npc,ini,section)
+	local npc_id,st = npc:id()
+	
+	if not db.storage[npc_id].blowout then
+		db.storage[npc_id].blowout = {}
+		st = db.storage[npc_id].blowout
+		st.npc = npc
+		add_to_binder(st)
+	else
+		st = db.storage[npc_id].blowout
+	end
+	-- нужно прочесть флаги (это типа начало игры)?
+	reset_blow_scheme(st,ini,section)
+end
+
+function reset_blow_scheme(st,ini,section)
+	st.is_blowout = false
+	st.cover_name = ""
+	st.look_lv = -1
+	st.wait_lv = -1
+	--st.last_action = nil --action_base()
+	st.llv_point = vector():set(0,1000,0)
+	if ini == nil then return end
+	if ini:line_exist(section,"on_blowout") then
+		local blow_section = ini:r_string(section,"on_blowout")
+		if ini:section_exist(blow_section) and ini:line_exist(blow_section,"cover") then
+			st.cover_name = ini:r_string(blow_section,"cover")
+		end
+	end
+end
+
+function disable_scheme(npc)
+  local st = db.storage[npc:id()].blowout
+	if not st then return end
+	--st.is_blowout = false
+	st = nil
+end
+
+function add_to_binder(st)
+	local manager,action = st.npc:motivation_action_manager()
+	manager:add_evaluator(ev_blow_is_blowout,this.evaluator_is_blow("blow_begin",st))
+	manager:add_evaluator(ev_blow_in_cover,this.evaluator_in_cover("blow_in_cover",st))
+	manager:add_evaluator(ev_blow_in_lv,this.evaluator_in_lv("blow_in_lv",st))
+	--manager:add_evaluator(ev_blow_fake,property_evaluator_const(false)) --затычка
+	
+--идем к убежищу
+	action = this.action_go_cover("blow_go_cover",st)
+	
+	action:add_precondition(world_property(ev_blow_is_blowout,true))
+	action:add_precondition(world_property(ev_blow_in_cover,false))
+	action:add_effect(world_property(ev_blow_in_cover,true))
+	
+	manager:add_action(act_blow_go_cover,action)
+	
+--идем к точке
+	action = this.action_go_lv("blow_go_lv",st)
+	
+	--action:add_precondition(world_property(ev_blow_is_blowout,true))
+	action:add_precondition(world_property(ev_blow_in_cover,true))
+	action:add_precondition(world_property(ev_blow_in_lv,false))
+	action:add_effect(world_property(ev_blow_in_lv,true))
+	
+	manager:add_action(act_blow_go_lv,action)
+	
+--ждем
+	action = this.action_blow_wait("blow_wait",st)
+	--action:add_precondition(world_property(ev_blow_is_blowout,true))
+	--action:add_precondition(world_property(ev_blow_in_cover,true))
+	action:add_precondition(world_property(ev_blow_in_lv,true))
+	action:add_effect(world_property(ev_blow_is_blowout,false))
+	manager:add_action(act_blow_wait,action)
+
+	--action = manager:action(xr_actions_id.alife)
+	--action:add_precondition(world_property(ev_blow_is_blowout,false))
+end
+
+function add_pre(action)
+	action:add_precondition(world_property(stalker_ids.property_alive,true))
+	action:add_precondition(world_property(stalker_ids.property_danger,false))
+	action:add_precondition(world_property(stalker_ids.property_enemy,false))
+	action:add_precondition(world_property(stalker_ids.property_anomaly,false))
+end
+
+function addCommonPrecondition(action)
+	action:add_precondition(world_property(ev_blow_is_blowout,false))
+end
+
+function npc_in_cover(st)
+	if st.cover_name == "" then --логики нету, находим ближайшее укрытие
+		local available_covers = covers[level.name()][st.npc:character_community()]
+		if available_covers == nil then --упс, укрытий нету, неписю каюк *_*
+			return false
+		end
+		st.cover_name = get_near_cover_name(st.npc,available_covers)
+	end
+	local cover = db.zone_by_name[st.cover_name]
+	return cover:inside(st.npc:position())
+end
+
+function get_near_cover_name(npc,covers)
+	local pos = npc:position()
+	local name,dist = "",1000000
+	for _,cover_name in pairs(covers) do
+		local cover = db.zone_by_name[cover_name]
+		if cover then
+			local new_dist = pos:distance_to_sqr(cover:position())
+			if new_dist < dist then
+				dist = new_dist
+				name = cover_name
+			end
+		end
+	end
+	return name
+end
+
+function get_cover_lv(st)
+	local cover = db.zone_by_name[st.cover_name]
+	local look,wait = cover:level_vertex_id(),0
+	while true do
+		local dir = vector():set(math.random(-1,1)*math.random(),0,math.random(-1,1)*math.random())
+		wait = level.vertex_in_direction(look,dir,5*math.random())
+		if cover:inside(level.vertex_position(wait)) then break end
+	end
+	return look,wait
+end
+
+
+
+
+
+

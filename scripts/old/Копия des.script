@@ -1,0 +1,288 @@
+--[[
+Основные функции трансмутации
+Таблица list_trans содержит все
+секция начального артефакта, секция конечного артефакта, время (в игровых мин), нормальный шанс, шанс вырождения, ид нужной инфопорции
+]]
+local list_trans = {
+[clsid.zone_mosquito_trans] = { --Трамплин:
+{"af_dummy_pellicle", "af_armor_1", 300, 70, 25, "info_amk_recipt_shkura"},
+{"af_dik_3", "af_dik_4", 540, 70, 20, "info_amk_recipt_stone_dikoobraz"},
+{"af_fuzz_kolobok", "af_kol_1", 120, 70, 25, "info_amk_recipt_steel_kolobok"},
+{{"af_medusa","af_drops","af_blood","af_rusty_thorn"}, "af_simbion", 240, 70, 20, "info_amk_recipt_simbion"}
+},
+[clsid.zone_gravi_trans] = { --Воронка:
+},
+[clsid.zone_mincer_trans] = { --Карусель(вверх):
+{"af_armor_1", "af_armor_2", 300, 80, 10, "info_amk_recipt_cheshya"},
+{"af_babka_2", "af_babka_3", 600, 85, 10, "info_amk_recipt_burer_grandmother_glassbeards"},
+{"af_kol_1", "af_kol_2", 300, 50, 35, "info_amk_recipt_titan_kolobok"}
+},
+[clsid.zone_zharka_trans] = { --Жарка:
+{"af_armor_3", "af_armor_4", 360, 65, 20, "info_amk_recipt_controller_skalp"},
+{"af_cry_1", "af_cry_2", 360, 65, 20, "info_amk_recipt_tears_fire"},
+{"af_rusty_sea-urchin", "af_dik_1", 180, 65, 20, "info_amk_recipt_dikoobraz"},
+{"af_kol_3", "af_kol_4", 180, 49, 30, "info_amk_recipt_giant_small_brother"},
+{"af_soul", "af_spirit_1", 240, 70, 25, "info_amk_recipt_souls"},
+{"af_spirit_1", "af_spirit_2", 360, 60, 20, "info_amk_recipt_souls"},
+{"af_spirit_2", "af_spirit_3", 600, 50, 35, "info_amk_recipt_souls"}
+},
+[clsid.zone_witches_trans] = { --Электра:
+{"af_dummy_glassbeads", "af_babka_1", 300, 50, 35, "info_amk_recipt_grandmother_glassbeards"},
+{"af_drops", "af_cry_1", 300, 75, 10, "info_amk_recipt_tears_electra"},
+{"af_dik_1", "af_dik_2", 300, 72, 25, "info_amk_recipt_electra_dikoobraz"},
+{"af_dummy_dummy", "af_pudd_1", 180, 70, 25, "info_amk_recipt_dummy"},
+{"af_pudd_1", "af_pudd_2", 360, 59, 20, "info_amk_recipt_dummy"},
+{"af_pudd_2", "af_pudd_3", 480, 50, 35, "info_amk_recipt_dummy"},
+{"af_spirit_3", "af_spirit_4", 60, 50, 30, "info_amk_recipt_souls"}
+},
+[clsid.zone_buzz_trans] = { --Холодец:
+{"af_armor_2", "af_armor_3", 120, 70, 20, "info_amk_recipt_pancir"},
+{"af_babka_1", "af_babka_2", 180, 72, 12, "info_amk_recipt_pra_grandmother_glassbeards"},
+{"af_cry_2", "af_cry_3", 120, 55, 25, "info_amk_recipt_tears_chimaera"},
+{"af_dik_2", "af_dik_3", 120, 74, 10, "info_amk_recipt_sopl_dikoobraz"},
+{"af_kol_2", "af_kol_3", 480, 78, 17, "info_amk_recipt_almaz_kolobok"},
+{"af_pudd_3", "af_pudd_4", 360, 59, 20, "info_amk_recipt_dummy"}
+}
+}
+local list_trans_new = {
+[clsid.zone_mosquito_trans] = {}, --Трамплин:
+[clsid.zone_gravi_trans] = {},--Воронка:
+[clsid.zone_mincer_trans] = {}, --Карусель(вверх):
+[clsid.zone_zharka_trans] = {}, --Жарка:
+[clsid.zone_witches_trans] = {}, --Электра:
+[clsid.zone_buzz_trans] = {} --Холодец:
+}
+
+local list_poss_anom = {}
+local con = get_console()
+local sect_b,sect_a,t_min,n_ch,d_ch,info = 1,2,3,4,5,6
+local clsid_anom,pos_anom,gvertex = 1,2,3
+local list_ids_del = {}
+local anomalies = {}
+local maxrange = 10
+local maxdist = 5 --максимальная дистанция от центра аномалии до артефакта, при которой аномалия примет артефакт.
+local coef_time = 60*1000 --переводной коэф в мс для минут
+local time_rnd = 10*coef_time --разброс +- ко времени трансмутации в игровых минутах
+
+function filling_lists()
+	local ini = ini_file("misc\\transmutation.ltx")	
+	local index = 0
+	local valid,trans_section = ini:r_line("trans_section",index)
+	while valid do
+		index = index + 1
+		if ini:section_exist(trans_section) then
+			local set_anom = ini:r_clsid(trans_section,"anomaly")
+			local info_trans = {}
+			info_trans.section = trans_section
+			info_trans.init_arts = get_section_ini(ini,trans_section,"init_art")
+			for art_section,num in pairs(info_trans.init_arts) do
+				if not list_poss_anom[art_section] then
+					list_poss_anom[art_section] = {}
+				end
+				if not list_poss_anom[art_section][set_anom] then
+					list_poss_anom[art_section][set_anom] = index
+				end
+			end
+			info_trans.final_arts = get_section_ini(ini,trans_section,"final_art")
+			--info_trans.time = {}
+			info_trans.time_def = get_time_ini(ini,trans_section,"time",1000)
+			info_trans.time_rnd = get_time_ini(ini,trans_section,"shift_time",0)
+			--info_trans.chance = {}
+			info_trans.chance_norm = get_chance_ini(ini,trans_section,"norm_chance",1)
+			info_trans.chance_degr = get_chance_ini(ini,trans_section,"degr_chance",0)
+			list_trans_new[set_anom][index] = info_trans
+		end
+		valid,trans_section = ini:r_line("trans_section",index)
+	end
+end
+--возвращает время в реальных мс из игрового, формат hh:mm:ss
+function get_time_ini(ini,section,key,def)
+	local str_time,t = "",{}
+	if ini:line_exist(section,key) then
+		str_time = ini:r_string(section,key)
+	else
+		return def
+	end
+	for str_num in string.gfind(str_time,"([%d]+)%:*") do
+		table.insert(t,tonumber(str_num))
+	end
+	return round(((t[1] * 60 + t[2]) * 60 + t[3]) * 1000 / level.get_time_factor())
+end
+--возвращает таблицу соответствий секции количеству (линия должна существовать)
+---af_medusa = 2, af_drops = 3, af_blood, af_rusty_thorn = 2 -->
+--{af_medusa = 2, af_drops = 3, af_blood = 1, af_rusty_thorn = 2}
+function get_section_ini(ini,section,key)
+	local str_sec,t = ini:r_string(section,key),{}
+	for sec,num in string.gfind(str_sec,"([%w_]+)%=*(%d*)%,*") do
+		if num == "" then num = 1 else num = tonumber(num) end
+		t[sec] = num
+	end
+	return t
+end
+
+function get_chance_ini(ini,section,key,def)
+	local chance = def
+	if ini:line_exist(section,key) then
+		chance = ini:r_u32(section,key)
+	end
+	return chance
+end
+
+function start_trans(art)
+	if des_dop.is_artefact(art) then
+		for id_anom,info_anom in pairs(anoms) do
+			if des_dop.dist_obj_to_point(art,info_anom[pos_anom]) < maxdist then
+				for id_trans,stat_param in pairs(list_trans[info_anom[clsid_anom]]) do
+					if has_alife_info(stat_param[info]) then
+						local sections = stat_param[sect_b]
+						if art:section() == sections then
+							local end_time_ms = (stat_param[t_min]*coef_time + math.random(-time_rnd,time_rnd))/level.get_time_factor()
+							start_trans_timer(id_trans,info_anom,end_time_ms)
+							des_dop.delete_obj(art)
+						elseif type(sections) == "table" then
+							if not next(multi_tbl) then multi_tbl = {unpack(sections)} end
+							local end_time_ms = (stat_param[t_min]*coef_time + math.random(-time_rnd,time_rnd))/level.get_time_factor()
+							multi_trans(art,id_trans,info_anom,end_time_ms)
+						end return
+					end
+				end
+			end
+		end
+	end
+end
+
+function debut(art)
+	local section = art:section()
+	if not list_poss_anom[section] then return end --если нету сопоставлений с аномалиями, то дальше ничего не проверяем\считаем что это не артефакт
+	for id,info_anom in pairs(anomalies) do
+		local index = list_poss_anom[section][info_anom.clsid]
+		if index and des_dop.dist_obj_to_point(art,info_anom.position) < maxdist then
+			this.mittelspiel(art,info_anom,index,section)
+		end
+	end
+end
+
+function mittelspiel(art,info_anom,index,section)
+	local info_trans,next_phase = list_trans_new[info_anom.clsid][index],true
+	if info_trans.init_arts[section] == 0 then return end --артов с этой секцией больше не надо
+	info_trans.init_arts[section] = info_trans.init_arts[section] - 1
+	list_ids_del[art:id()] = true
+	for sect,num in pairs(info_trans.init_arts) do
+		if num ~= 0 then return end --если выкинули не все арты - выход
+	end
+	--начинаем трансмутацию
+	delete_tbl_obj
+	local trans_time = info_trans.time_def + math.random(-info_trans.time_rnd,info_trans.time_rnd)
+	local din_param = { --1+1
+		info_anom.clsid, --1+1
+		index, --1+1
+		info_anom.level_vertex, --4+1
+		info_anom.game_vertex, --2+1
+		math.random(0,100), --1+1
+		math.random(1,3) --1+1
+	}
+	des_timers.start_timer(round(end_time_ms),"des.endspiel",din_param) --4+13+16+1+1=35
+	des_dop.give_mess("Начало трансмутации")
+end
+
+function endspiel(clsid,index,lv,gv,norm_ch,degr_ch)
+	local info_trans = list_trans_new[clsid][index]
+	local section,mess = "",""
+	if info_trans.chance_norm + info_trans.chance_degr < rnd then
+		return des_dop.give_mess("Трансмутация неудалась, артефакт(ы) разрушен(ы).")
+	elseif info_trans.chance_norm < rnd then
+		mess = "Вырождение артефакта, результат: "
+		section = get_name_drate(sid,rnd_d)
+	else
+		mess = "Удачная трансмутация, результат: "
+		section = stat_param[sect_a]
+	end
+	local pos = level.vertex_position(lv)
+	pos.y = pos.y + 0.5
+	local obj = alife():create(section,pos,lv,gv)
+	local name = game.translate_string(section)
+	level.map_add_object_spot_ser(obj.id,"artefact_location",name)
+	des_dop.give_mess(mess..name)
+end
+
+function start_trans_timer(id_trans,info_anom,end_time_ms)
+	local sid,pos,gv = unpack(info_anom)
+	local din_param = {id_trans,sid,pos.x,pos.y,pos.z,gv,math.random(0,100),math.random(1,3)}
+	des_timers.start_timer(round(end_time_ms),"des.end_trans",din_param)
+	des_dop.give_mess("Начало трансмутации")
+end
+
+function multi_trans(art,id_trans,info_anom,end_time_ms)
+	for i=1,#multi_tbl do
+		if multi_tbl[i] == art:section() then
+			multi_tbl[i] = art:id()
+			if des_dop.is_val_tbl(multi_tbl,"number") then
+				des_dop.delete_tbl_obj(multi_tbl)
+				start_trans_timer(id_trans,info_anom,end_time_ms)
+				multi_tbl = {}
+				break
+			end
+		end
+	end
+end
+
+function on_item_take(art)
+	if next(multi_tbl) and des_dop.is_artefact(art) then
+		for i=1,#multi_tbl do
+			if multi_tbl[i] == art:id() then
+				multi_tbl[i] = art:section()
+				if des_dop.is_val_tbl(multi_tbl,"string") then multi_tbl = {} end
+			end
+		end
+	end
+	if level.map_has_object_spot(art:id(),"artefact_location") then
+		level.map_remove_object_spot(art:id(),"artefact_location")
+	end
+end
+
+function end_trans(id_trans,sid,x,y,z,gv,rnd,rnd_d)
+	local stat_param = list_trans[sid][id_trans]
+	local section = ""
+	local mess = ""
+	if stat_param[n_ch] + stat_param[d_ch] < rnd then --разрушение
+		return des_dop.give_mess("Трансмутация неудалась, артефакт разрушен.")
+	elseif stat_param[n_ch] < rnd then --вырождение
+		mess = "Вырождение артефакта, результат: "
+		section = get_name_drate(sid,rnd_d)
+	else --удачная трансмутация
+		mess = "Удачная трансмутация, результат: "
+		section = stat_param[sect_a]
+	end
+	local obj = alife():create(section,vector():set(x,y+1,z),0,gv)
+	local name = game.translate_string(section)
+	level.map_add_object_spot_ser(obj.id,"artefact_location",name)
+	des_dop.give_mess(mess..name)
+end
+
+local function get_name_drate(sid,number)
+	local section = ""
+	if sid == clsid.zone_gravi_trans 				then section = "af_gravi_drate_"
+	elseif sid == clsid.zone_buzz_trans 		then section = "af_buzz_drate_"
+	elseif sid == clsid.zone_mincer_trans 	then section = "af_mincer_drate_"
+	elseif sid == clsid.zone_mosquito_trans then section = "af_mosquito_drate_"
+	elseif sid == clsid.zone_witches_trans 	then section = "af_witches_drate_"
+	elseif sid == clsid.zone_zharka_trans 	then section = "af_zharka_drate_"
+	end
+	if section == "" then return section end
+	section = section..number
+	return section
+end
+
+function add_rem_anom(sid,id,pos,gv)
+	if sid then
+		anomalies[id] = {clsid = sid, position = pos, level_vertex = lv, game_vertex = gv, in_range = false}
+	else
+		anomalies[id] = nil
+	end
+end
+
+function upd_anom_dist()
+	for id,info_anom in pairs(anomalies) do
+		info_anom.in_range = des_dop.dist_obj_to_point(db.actor,info_anom.position) < maxrange
+	end
+end

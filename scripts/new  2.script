@@ -1,0 +1,442 @@
+----------------------------------------
+--- Система обработки "таймеров" и данных массивов пстор
+---
+-----------------------------------------
+
+local all_pstor_keeper = {
+    ["l01_escape"] = {
+        [1] = {    
+            section_key = "lamp",
+            pos_x = 10,
+            pos_y = 10,
+            pos_z = 10,
+            id = nil --- optional data
+        }
+    },
+    ["predbannik"] = {
+        [1] = {
+            section_key = "hanging_lamp",
+            pos_x = 91.98,
+            pos_y = 3.53,
+            pos_z = -64.79,
+            id = nil
+        },
+        [2] = {
+            section_key = "hanging_lamp",
+            pos_x = -256.05,
+            pos_y = 20.92,
+            pos_z = 262.58,
+            id = nil
+        },
+        [3] = {
+            section_key = "hanging_lamp",
+            pos_x = -284.64,
+            pos_y = 13.57,
+            pos_z = 238.55,
+            id = nil
+        },
+        [4] = {
+            section_key = "hanging_lamp",
+            pos_x = -255,
+            pos_y = 18.32,
+            pos_z = 237.03,
+            id = nil
+        },
+        [5] = {
+            section_key = "hanging_lamp",
+            pos_x = -37.19,
+            pos_y = 2.46,
+            pos_z = 345.26,
+            id = nil
+        }--- next id 11230
+    }
+}
+
+local pstor_keep_base = {}
+
+function keep_read(lv, id)
+    local lv_ar = {}
+    if pstor_keep_base[lv] == nil then
+        lv_ar = all_pstor_keeper[lv]
+        pstor_keep_base[lv] = all_pstor_keeper[lv]
+    else
+        lv_ar = pstor_keep_base[lv]
+    end
+    local keeper = lv_ar[id]
+    return keeper
+end
+
+function keep_write(lv, id, keeper)
+    local lv_ar = {}
+    if pstor_keep_base[lv] == nil then
+        lv_ar = all_pstor_keeper[lv]
+        pstor_keep_base[lv] = all_pstor_keeper[lv]
+    else
+        lv_ar = pstor_keep_base[lv]
+    end
+    lv_ar[id] = keeper
+end
+
+function keep_pstor_store(level_name, keeper_index, varname, val)
+    local keeper = keep_read(level_name, keeper_index)
+    local keeper_pos = vector()
+    local keeper_id = 0
+    if keeper.id ~= nil then
+    keeper_id = keeper.id
+    else
+    keeper_pos.x = keeper.pos_x
+    keeper_pos.y = keeper.pos_y
+    keeper_pos.z = keeper.pos_z
+    keeper_id = find_keeper(keeper_pos, keeper.section_key)
+    keep_write(level_name, keeper_index, keeper)
+    end
+    local keeper_obj = level.object_by_id(keeper_id)
+    xr_logic.pstor_store(keeper_obj, varname, val)
+    log("Time_system.keep_pstor_store: keep_id:"..tostring(keeper_id).." varname:"..varname.." val:"..val)
+    --- оптимизировать получение хранителя
+end
+
+function keep_pstor_retrieve(level_name, keeper_index, varname, defval)
+    local keeper = keep_read(level_name, keeper_index)
+    local keeper_pos = vector()
+    local keeper_id = 0
+    if keeper.id ~= nil then
+    keeper_id = keeper.id
+    else
+    keeper_pos.x = keeper.pos_x
+    keeper_pos.y = keeper.pos_y
+    keeper_pos.z = keeper.pos_z
+    keeper_id = find_keeper(keeper_pos, keeper.section_key)
+    keep_write(level_name, keeper_index, keeper)
+    end
+    local keeper_obj = level.object_by_id(keeper_id)
+    local R =  xr_logic.pstor_retrieve(keeper_obj, varname, defval)
+    log("Time_system.keep_pstor_read: keep_id:"..tostring(keeper_id).." varname:"..varname.." defval:"..defval.." read:"..R)
+    return R
+end
+
+function read_info_local(keep_index, varname, id)
+    local level_name = ""
+    local sim = alife()
+    level_name = string.lower(sim:level_name(sim:level_id()))
+    local read_code = time_system.keep_pstor_retrieve(level_name, keep_index, varname, 0)
+    local read_table = zander_utils.number_to_bytes(read_code)
+    return read_table[id]
+end
+
+function write_info_local(keep_index, varname, id, value)
+    local level_name = ""
+    local sim = alife()
+    level_name = string.lower(sim:level_name(sim:level_id()))
+    local read_code = time_system.keep_pstor_retrieve(level_name, keep_index, varname, 0)
+    local read_table = zander_utils.number_to_bytes(read_code)
+    if type(value) == "boolean" then
+    read_table[id] = value
+    read_code = zander_utils.bytes_to_number(read_table)
+    time_system.keep_pstor_store(level_name, keep_index, varname, read_code)
+    else
+    log("time_system.write_info_local: Data for write Incorrect! level:"..level_name.."; keeper:"..tostring(keep_index).."; varname:"..varname.."; id:"..tostring(id).."; value:"..zander_utils.any_data_tostring(value))
+    end
+end
+
+function read_info_global(varname, id)
+    local read_code = xr_logic.pstor_retrieve(db.actor, varname, 0)
+    local read_table = zander_utils.number_to_bytes(read_code)
+    return read_table[id]
+end
+
+function write_info_global(varname, id, value)
+    local read_code = xr_logic.pstor_retrieve(db.actor, varname, 0)
+    local read_table = zander_utils.number_to_bytes(read_code)
+    if type(value) == "boolean" then
+    read_table[id] = value
+    read_code = zander_utils.bytes_to_number(read_table)
+    xr_logic.pstor_store(db.actor, varname, read_code)
+    else
+    log("time_system.write_info_global: Data for write Incorrect! varname:"..varname.."; id:"..tostring(id).."; value:"..zander_utils.any_data_tostring(value))
+    end
+end
+
+function find_keeper(position, key_find)
+for b = 0, 65534 do
+    local obj = level.object_by_id(b)
+    if obj and (db.storage[b] ~= nil) then
+    local sec = obj:section()
+    if sec then
+    if string.find(sec, key_find) then
+        local v = obj:position()
+        if v:distance_to(position) < 1 then
+            return b
+        end
+    end
+    end
+    end
+end
+return nil
+--- возвращает ID хранителя
+end
+
+function get_datasize(val)
+--- вернуть объем (в байтах) занимаемый данной информацией.
+
+end
+
+function pd_write(varname, val)
+
+end
+
+function pd_read(varname, defval)
+
+end
+
+---************ Службы времени ***************************
+local TIME_CHECK = 0
+function check(delta)
+    TIME_CHECK = TIME_CHECK + delta
+    if TIME_CHECK > 1000 then 
+        TIME_CHECK = TIME_CHECK - 1000
+        time_system.time_update()
+    end
+end
+
+function time_update()
+    local second = xr_logic.pstor_retrieve(db.actor, "time1", nil)
+    local minute = xr_logic.pstor_retrieve(db.actor, "time2", nil)
+    local hours = xr_logic.pstor_retrieve(db.actor, "time3", nil)
+    local days = xr_logic.pstor_retrieve(db.actor, "time4", nil)
+    --- nil оставлен намеренно. в случае сбоя обновления времени произойдет вылет.
+    if second ~= nil then
+    --- обновить время
+    second = second + 1
+    --- &&
+    if second > 9 then --- секунды - реального времени
+    second = second - 10 --- в игровой минуте будет 10 реальных секунд, тайм-фактор фиксирован.
+    minute = minute + 1
+    end
+    --- &&
+    if minute > 59 then --- минуты и последующие величины - уже игрового.
+    minute = minute - 60
+    hours = hours + 1
+    end
+    --- &&
+    if hours > 23 then
+    hours = hours - 24
+    days = days + 1
+    end
+    --- ###
+    else --- это старт игры
+        second = 1
+        minute = 0
+        hours = 10
+        days = (365 * 14) + 243 + 12
+    end
+    xr_logic.pstor_store(db.actor, "time1", second)
+    xr_logic.pstor_store(db.actor, "time2", minute)
+    xr_logic.pstor_store(db.actor, "time3", hours)
+    xr_logic.pstor_store(db.actor, "time4", days)
+    
+    --if hours == 21 and minute == 0 and second == 0 then
+    --events.good_night()
+    --end
+end
+
+function get_time()
+    local second = xr_logic.pstor_retrieve(db.actor, "time1", nil)
+    local minute = xr_logic.pstor_retrieve(db.actor, "time2", nil)
+    local hours = xr_logic.pstor_retrieve(db.actor, "time3", nil)
+    local days = xr_logic.pstor_retrieve(db.actor, "time4", nil)
+    return {second,minute,hours,day}
+end
+--[[
+function verify_time(p1,p2)
+--- возвращает результат сравнения двух дат. истина - если р2 >= р1
+    local a = 4
+    while a > 0 do
+        if p2[a] > p1[a] then
+            return true
+            break
+        elseif p2[a] == p1[a] then
+            a = a - 1
+        else
+            return false
+            break
+        end
+    end
+    return true
+end
+
+function sum_time(p1,p2)
+    --- возвращает сумму двух периодов
+    local pr = {0,0,0,0}
+    pr[1] = p1[1] + p2[1]
+    if pr[1] > 9 then
+    pr[1] = pr[1] - 10
+    pr[2] = pr[2] + 1
+    end
+    pr[2] = pr[2] + p1[2] + p2[2]
+    if pr[2] > 59 then
+    pr[2] = pr[2] - 60
+    pr[3] = pr[3] + 1
+    end
+    pr[3] = pr[3] + p1[3] + p2[3]
+    if pr[3] > 23 then
+    pr[3] = pr[3] - 24
+    pr[4] = pr[4] + 1
+    end
+    pr[4] = pr[4] + p1[4] + p2[4]
+    return pr
+end
+]]
+function get_next_data(period)
+-- возвращает дату, когда будет завершен введенный период, старт отсчета с настоящего момента
+return time_system.sum_time(get_time(),period)
+end
+
+function set_time_period(period)
+--- переводит записанное в пстор время на заданную величину вперед. назад переводить нельзя.
+    local second = xr_logic.pstor_retrieve(db.actor, "time1", nil)
+    local minute = xr_logic.pstor_retrieve(db.actor, "time2", nil)
+    local hours = xr_logic.pstor_retrieve(db.actor, "time3", nil)
+    local days = xr_logic.pstor_retrieve(db.actor, "time4", nil)
+    second = (second + period[1]) or second
+    minute = (minute + period[2]) or minute
+    hours = (hours + period[3]) or hours
+    days = (days + period[4]) or days
+    xr_logic.pstor_store(db.actor, "time1", second)
+    xr_logic.pstor_store(db.actor, "time2", minute)
+    xr_logic.pstor_store(db.actor, "time3", hours)
+    xr_logic.pstor_store(db.actor, "time4", days)    
+end
+--[[
+function days_to_data(days)
+--- return data {years, month, day}
+local years = 0
+local month = 0
+local day = 0
+local cd = days
+while cd > 365 do
+years = years + 1
+cd = cd - 365
+end
+if cd < 32 then
+month = 1
+day = cd
+elseif cd > 31 and cd < 60 then
+month = 2
+day = cd - 31
+elseif cd > 59 and cd < 91 then
+month = 3
+day = cd - 59
+elseif cd > 90 and cd < 121 then
+month = 4
+day = cd - 90
+elseif cd > 120 and cd < 152 then
+month = 5
+day = cd - 120
+elseif cd > 151 and cd < 182 then
+month = 6
+day = cd - 151
+elseif cd > 181 and cd < 213 then
+month = 7
+day = cd - 181
+elseif cd > 212 and cd < 244 then
+month = 8
+day = cd - 212
+elseif cd > 243 and cd < 274 then
+month = 9
+day = cd - 243
+elseif cd > 273 and cd < 305 then
+month = 10
+day = cd - 273
+elseif cd > 304 and cd < 335 then
+month = 11
+day = cd - 304
+elseif cd > 334 and cd < 366 then
+month = 12
+day = cd - 334
+end
+return {years, month, day}
+end
+]]
+function data_to_days(years,month,day)
+local month_size = {0,31,59,90,120,151,181,212,243,273,304,334}
+return (years * 365) + month_size[month] + day
+end
+
+---*************************************************************************************************
+--- тестовые функции, убрать потом
+
+function getradiuslist(max_distance, center_pos)
+local retlist = {}
+local a = 1
+for b = 0, 65534 do
+    local obj = level.object_by_id(b)
+    if obj and (db.storage[b] ~= nil) then
+        local v = obj:position()
+        if max_distance > v:distance_to(center_pos) then
+            retlist[a] = b
+            a = a + 1
+        end
+    end
+end
+return retlist
+--- возвращает список ид подходящих объектов.
+end
+
+function scan_for_keep(radius)
+local scan_list = getradiuslist(radius, db.actor:position(), false, false)
+local msg = "Scan Data "
+local a = 1
+while scan_list[a] ~= nil do
+    local obj = level.object_by_id(scan_list[a])
+    if obj then
+    local section = obj:section()
+    local obj_id = scan_list[a]
+    local pos = obj:position()
+    local px = pos.x
+    local py = pos.y
+    local pz = pos.z
+    
+    msg = msg.."//n OBJECT:"..tostring(obj_id)..":"..section..": X"..tostring(px).."; Y"..tostring(py).."; Z"..tostring(pz)
+        if string.find(section, "lamp") then
+        if db.storage[obj_id].pstor == nil then db.storage[obj_id].pstor = {} end
+        if db.storage[obj_id].pstor["DatatimeKeep"] == nil then
+        db.storage[obj_id].pstor["DatatimeKeep"] = "Data"
+        msg = msg.." Data Write"
+        else
+        msg = msg.." DATA READ!!!"
+        end
+        end
+    
+    else
+    msg = "Error scanning: Line "..tostring(a)
+    end
+a = a + 1
+end
+----
+local apx = db.actor:position()
+local px = apx.x
+local py = apx.y
+local pz = apx.z
+local lv = db.actor:level_vertex_id()
+local gv = db.actor:game_vertex_id()
+local sim = alife()
+msg = "X:"..tostring(px)..",Y:"..tostring(py)..",Z:"..tostring(pz)..",LV:"..tostring(lv)..",GV:"..tostring(gv)..",location:"..string.lower(sim:level_name(sim:level_id()))
+--news_manager.send_tip(db.actor, msg, nil, nil, 12000) 
+--se_respawn.spawn(predbannik_milnato_respawn)
+end
+
+local chkr = 0
+local tcrrrh = 0
+function scaner_forkeep(delta)
+chkr = chkr + delta
+tcrrrh = tcrrrh + delta
+if chkr > 10000 then scan_for_keep(3) 
+chkr = 0
+end
+if tcrrrh > 5000 then
+local dir = db.actor:direction()
+---news_manager.send_tip(db.actor, "DIR X"..tostring(dir.x).."; Y"..tostring(dir.y).."; Z"..tostring(dir.z), nil, nil, 5000) 
+tcrrrh = 0
+end
+end

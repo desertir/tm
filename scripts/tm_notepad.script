@@ -1,0 +1,3 @@
+function start_npwnd()
+	tm_utils.give_mess("Открытие блокнота")
+end

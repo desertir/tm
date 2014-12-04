@@ -1,0 +1,112 @@
+--[[Вспомогательные функции]]
+function delete_obj(id)
+	local sim = alife()
+	if id ~= nil then
+		if type(id) == "userdata" then id = id:id() end
+		sim:release(sim:object(id),true)
+	end
+end
+
+function delete_tbl_obj(t)
+	for i=1,#t do
+		delete_obj(t[i])
+	end
+end
+
+function dist_obj_to_obj(obj1,obj2)
+	if obj1 and obj2 then
+		return obj1:position():distance_to(obj2:position())
+	end
+end
+
+function dist_pp_sqr(v1,v2)
+	local x = v1.x - v2.x
+	local y = v1.y - v2.y
+	local z = v1.z - v2.z
+	return x * x + y * y + z * z
+end
+
+function dist_obj_to_point(obj,vec)
+	if not obj or not vec then pcon("bad arguments in 'dist_obj_to_point'") return 0 end
+	return vec:distance_to(obj:position())
+end
+
+function is_artefact(obj)
+	local id = get_clsid(obj)
+	return id == clsid.artefact or id == clsid.artefact_s
+end
+
+function is_val_tbl(t,val)
+	local i = #t
+	while type(t[i]) == val do
+		i = i - 1
+	end
+	return i == 0
+end
+
+function give_mess(text)
+	if not text then text = "Text is nil" end
+	db.actor:give_game_news(text,"ui\\ui_iconstotal",Frect():set(0,282,83,47),0,5000)
+end
+
+function coor()
+	get_hud():AddCustomStatic("cs_debug",true)
+	local lvid, gvid = db.actor:level_vertex_id(), db.actor:game_vertex_id()
+	local pos, dir = db.actor:position(), db.actor:direction()
+	local d = vector():sub(pos, level.vertex_position(lvid))
+	local valid = (math.abs(d.x) <= 0.35 and math.abs(d.y) < 1.0 and math.abs(d.z) <= 0.35)
+	local msg = string.format("lvid: %d\\n", lvid)..string.format("gvid: %d\\n", gvid)..string.format("pos: %f,%f,%f\\n", pos.x, pos.y, pos.z)..string.format("dir: %f,%f,%f\\n", dir.x, dir.y, dir.z).."valid: " .. tostring(valid)
+	get_hud():GetCustomStatic("cs_debug"):wnd():SetText(msg)
+end
+
+function create_lc(t)
+	local obj = alife():create("level_changer",t.position,t.level_vertex,t.game_vertex)
+	level.map_add_object_spot_ser(obj.id,"level_changer","")
+	local data = xrs_utils.get_lc_data(obj)
+	data.shapes[1] = {}
+	data.shapes[1].shtype = 0
+	data.shapes[1].center = vector():set(0,0,0)
+	data.shapes[1].radius = 3
+	data.dest_game_vertex_id = t.go_game_vertex
+	data.dest_level_vertex_id = t.go_level_vertex
+	data.dest_position = t.go_position
+	data.dest_direction = t.go_direction
+	data.dest_level_name = t.go_level_name
+	xrs_utils.set_lc_data(data,obj)
+	return obj
+end
+
+function create_anom(t)
+	t.position = t.position or level.vertex_position(t.level_vertex)
+	local obj = alife():create(t.section,t.position,0--[[t.level_vertex]],t.game_vertex)
+	local data = xrs_utils.get_anomaly_data(obj)
+	data.shapes[1] = {}
+	data.shapes[1].shtype = 0
+	data.shapes[1].center = vector():set(0,0,0)
+	data.shapes[1].radius = t.radius or 2
+	if t.power then data.max_power = t.power end
+	xrs_utils.set_anomaly_data(data,obj)
+	return obj
+end
+
+function get_dir(lv)
+	local lv1 = level.vertex_in_direction(lv,vector():set(1,0,1),0.5)
+	local lv2 = level.vertex_in_direction(lv,vector():set(1,0,-1),0.5)
+	local pos = level.vertex_position(lv)
+	local pos1 = level.vertex_position(lv1)
+	local pos2 = level.vertex_position(lv2)
+	local v1 = vector():sub(pos,pos1)
+	local v2 = vector():sub(pos,pos2)
+	local norm = v1:crossproduct(v2)
+	norm:normalize()
+	
+	
+end
+
+
+
+
+
+
+
+

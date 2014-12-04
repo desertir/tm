@@ -1,0 +1,47 @@
+game_ms = 00
+game_sec = 01
+real_ms = 10
+real_sec = 11
+
+function start(ttype,period,event,...)
+	local coef = 1
+	local is_real,is_sec = math.modf(ttype/10) is_sec = round(is_sec*10)
+	
+	if is_sec == 1 then coef = 1000 end
+	if is_real == 1 then coef = coef * level.get_time_factor() end
+	
+	local Y,Mn,D,h,m,s,ms = game.get_game_time():get()
+	local ctime = game.CTime() ctime:set(Y,Mn,D,h,m,s,ms + period * coef)
+	add(ctime,event,...)
+end
+
+function add(ctime,event,...)
+	table.insert(get_data("timers"),ctime_timer(ctime,event,...))
+end
+
+function update()
+	local now_time = game.get_game_time()
+	local timers = get_data("timers")
+	for k,timer in pairs(timers) do
+		if timer:update(now_time) then
+			table.remove(timers,k)
+		end
+	end
+end
+
+class "ctime_timer"
+function ctime_timer:__init(ctimeX,event,...)
+	self.ctimeev = ctimeX
+	self.module,self.foo = string.match(event,"([%w_]+)%.([%w_]+)")
+	self.args = {...}
+end
+function ctime_timer:update(ctime)
+	if ctime >= self.ctimeev then
+		_G[self.module][self.foo](unpack(self.args))
+		return true
+	end
+	return false
+end
+function ctime_timer:pack()
+	return tm_pk.pack_ctime(self.ctimeev),self.module.."."..self.foo,self.args
+end
