@@ -1,6 +1,6 @@
--- Схема убегания в укрытия неписей (специально для мода "Судьба Зоны")
--- Подключение в modules и xr_logic
--- Автор: Desertir
+п»ї-- РЎС…РµРјР° СѓР±РµРіР°РЅРёСЏ РІ СѓРєСЂС‹С‚РёСЏ РЅРµРїРёСЃРµР№ (СЃРїРµС†РёР°Р»СЊРЅРѕ РґР»СЏ РјРѕРґР° "РЎСѓРґСЊР±Р° Р—РѕРЅС‹")
+-- РџРѕРґРєР»СЋС‡РµРЅРёРµ РІ modules Рё xr_logic
+-- РђРІС‚РѕСЂ: Desertir
 
 
 ev_blow_is_blowout_rain = 20000
@@ -13,7 +13,7 @@ act_blow_go_lv = act_blow_go_cover + 1
 act_blow_wait = act_blow_go_cover + 2
 
 --EVALUATORS
---если идет выброс или дождь, в укрытии ли мы?
+--РµСЃР»Рё РёРґРµС‚ РІС‹Р±СЂРѕСЃ РёР»Рё РґРѕР¶РґСЊ, РІ СѓРєСЂС‹С‚РёРё Р»Рё РјС‹?
 class "evaluator_in_cover" (property_evaluator)
 function evaluator_in_cover:__init(name,storage) super(nil,name)
 	self.a = storage
@@ -24,7 +24,7 @@ function evaluator_in_cover:evaluate()
 	end
 	return false
 end
---если идет выброс или дождь, в нужной ли точке мы?
+--РµСЃР»Рё РёРґРµС‚ РІС‹Р±СЂРѕСЃ РёР»Рё РґРѕР¶РґСЊ, РІ РЅСѓР¶РЅРѕР№ Р»Рё С‚РѕС‡РєРµ РјС‹?
 class "evaluator_in_lv" (property_evaluator)
 function evaluator_in_lv:__init(name,storage) super(nil,name)
 	self.a = storage
@@ -35,7 +35,7 @@ function evaluator_in_lv:evaluate()
 	end
 	return false
 end
---общий эвалуатор для дождя и выброса
+--РѕР±С‰РёР№ СЌРІР°Р»СѓР°С‚РѕСЂ РґР»СЏ РґРѕР¶РґСЏ Рё РІС‹Р±СЂРѕСЃР°
 class "evaluator_is_blow_or_rain" (property_evaluator)
 function evaluator_is_blow_or_rain:__init(name,storage) super(nil,name)
 	self.a = storage
@@ -43,19 +43,19 @@ end
 function evaluator_is_blow_or_rain:evaluate()
 	local rain = has_alife_info("start_rain")
 	local blowout = has_alife_info("start_blowout")
-	if rain ~= self.a.is_rain or blowout ~= self.a.is_blowout then --состояние изменилось (либо начало либо конец)
-		if rain or blowout then --если чтото началось
-			if not (self.a.is_rain or self.a.is_blowout) then --если у нас запустилось впервые
-				xr_kamp.kamp_stalkers[self.object:id()] = nil --камп - не камп, пофиг, обниляем чтоб мог говорить
+	if rain ~= self.a.is_rain or blowout ~= self.a.is_blowout then --СЃРѕСЃС‚РѕСЏРЅРёРµ РёР·РјРµРЅРёР»РѕСЃСЊ (Р»РёР±Рѕ РЅР°С‡Р°Р»Рѕ Р»РёР±Рѕ РєРѕРЅРµС†)
+		if rain or blowout then --РµСЃР»Рё С‡С‚РѕС‚Рѕ РЅР°С‡Р°Р»РѕСЃСЊ
+			if not (self.a.is_rain or self.a.is_blowout) then --РµСЃР»Рё Сѓ РЅР°СЃ Р·Р°РїСѓСЃС‚РёР»РѕСЃСЊ РІРїРµСЂРІС‹Рµ
+				xr_kamp.kamp_stalkers[self.object:id()] = nil --РєР°РјРї - РЅРµ РєР°РјРї, РїРѕС„РёРі, РѕР±РЅРёР»СЏРµРј С‡С‚РѕР± РјРѕРі РіРѕРІРѕСЂРёС‚СЊ
 				local manager = self.object:motivation_action_manager()
 				local action = manager:current_action()
-				action:add_precondition(world_property(ev_blow_is_blowout_rain,false)) --затыкаем текущий экшен
+				action:add_precondition(world_property(ev_blow_is_blowout_rain,false)) --Р·Р°С‚С‹РєР°РµРј С‚РµРєСѓС‰РёР№ СЌРєС€РµРЅ
 				self.a.last_action = action
-			elseif blowout and self.a.is_rain then --начался выброс во время дождя
+			elseif blowout and self.a.is_rain then --РЅР°С‡Р°Р»СЃСЏ РІС‹Р±СЂРѕСЃ РІРѕ РІСЂРµРјСЏ РґРѕР¶РґСЏ
 				reset_blow_scheme(self.a)
 			end
-		else --если это конец всех
-			self.a.last_action:remove_precondition(ev_blow_is_blowout_rain) --убираем затычку
+		else --РµСЃР»Рё СЌС‚Рѕ РєРѕРЅРµС† РІСЃРµС…
+			self.a.last_action:remove_precondition(ev_blow_is_blowout_rain) --СѓР±РёСЂР°РµРј Р·Р°С‚С‹С‡РєСѓ
 		end
 		self.a.is_rain = rain
 		self.a.is_blowout = blowout
@@ -64,7 +64,7 @@ function evaluator_is_blow_or_rain:evaluate()
 end
 
 --ACTIONS
---идем в укрытие
+--РёРґРµРј РІ СѓРєСЂС‹С‚РёРµ
 class "action_go_cover" (action_base)
 function action_go_cover:__init (action_name,storage,is_blow) super (nil,action_name)
 	self.a = storage
@@ -77,10 +77,10 @@ function action_go_cover:initialize()
 	--self.object:set_desired_direction()
 	xr_sound.set_sound(self.object,nil)
 	stop_play_sound(self.object)
-	--экшен начался, значит один из флагов или оба тру, передаем флаг выброса
+	--СЌРєС€РµРЅ РЅР°С‡Р°Р»СЃСЏ, Р·РЅР°С‡РёС‚ РѕРґРёРЅ РёР· С„Р»Р°РіРѕРІ РёР»Рё РѕР±Р° С‚СЂСѓ, РїРµСЂРµРґР°РµРј С„Р»Р°Рі РІС‹Р±СЂРѕСЃР°
 	self.a.cover_id,self.a.look_lv = get_cover_lv(self.object,self.is_blowout)
 	self.a.llv_point = level.vertex_position(self.a.look_lv)
-	self:execute() --ставим состояние
+	self:execute() --СЃС‚Р°РІРёРј СЃРѕСЃС‚РѕСЏРЅРёРµ
 	--pcon("cover_id [%s]; look_lv [%s]; llv_point [x:%s,y:%s,z:%s]",self.a.cover_id,self.a.look_lv,
 	--self.a.llv_point.x,self.a.llv_point.y,self.a.llv_point.z)
 	-- if not self.object:accessible(self.a.wait_lv) then
@@ -109,7 +109,7 @@ end
 function action_go_cover:finalize()
 	action_base.finalize(self)
 end
---идем на нужный лв
+--РёРґРµРј РЅР° РЅСѓР¶РЅС‹Р№ Р»РІ
 class "action_go_lv" (action_base)
 function action_go_lv:__init (action_name,storage) super (nil,action_name)
 	self.a = storage
@@ -135,7 +135,7 @@ end
 function action_go_lv:finalize()
 	action_base.finalize(self)
 end
---сидим и ждем
+--СЃРёРґРёРј Рё Р¶РґРµРј
 class "action_blow_wait" (action_base)
 function action_blow_wait:__init (action_name,storage) super (nil,action_name)
 	self.a = storage
@@ -165,7 +165,7 @@ function set_scheme(npc,ini,own_section)
 	else
 		st = db.storage[npc_id].blowout
 	end
-	-- нужно прочесть флаги (это типа начало игры)?
+	-- РЅСѓР¶РЅРѕ РїСЂРѕС‡РµСЃС‚СЊ С„Р»Р°РіРё (СЌС‚Рѕ С‚РёРїР° РЅР°С‡Р°Р»Рѕ РёРіСЂС‹)?
 	reset_blow_scheme(st)
 	st.is_rain = false
 	st.is_blowout = false
@@ -192,9 +192,9 @@ function add_to_binder(st)
 	manager:add_evaluator(ev_blow_is_blowout_rain,this.evaluator_is_blow_or_rain("blow_begin",st))
 	manager:add_evaluator(ev_blow_in_cover,this.evaluator_in_cover("blow_in_cover",st))
 	manager:add_evaluator(ev_blow_in_lv,this.evaluator_in_lv("blow_in_lv",st))
-	--manager:add_evaluator(ev_blow_fake,property_evaluator_const(false)) --затычка
+	--manager:add_evaluator(ev_blow_fake,property_evaluator_const(false)) --Р·Р°С‚С‹С‡РєР°
 	
---идем к убежищу
+--РёРґРµРј Рє СѓР±РµР¶РёС‰Сѓ
 	action = this.action_go_cover("blow_go_cover",st)
 	
 	action:add_precondition(world_property(ev_blow_is_blowout_rain,true))
@@ -203,7 +203,7 @@ function add_to_binder(st)
 	
 	manager:add_action(act_blow_go_cover,action)
 	
---идем к точке
+--РёРґРµРј Рє С‚РѕС‡РєРµ
 	action = this.action_go_lv("blow_go_lv",st)
 	
 	--action:add_precondition(world_property(ev_blow_is_blowout_rain,true))
@@ -213,7 +213,7 @@ function add_to_binder(st)
 	
 	manager:add_action(act_blow_go_lv,action)
 	
---ждем
+--Р¶РґРµРј
 	action = this.action_blow_wait("blow_wait",st)
 	--action:add_precondition(world_property(ev_blow_is_blowout_rain,true))
 	--action:add_precondition(world_property(ev_blow_in_cover,true))

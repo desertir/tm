@@ -1,15 +1,15 @@
---[[
-Основные функции трансмутации
+п»ї--[[
+РћСЃРЅРѕРІРЅС‹Рµ С„СѓРЅРєС†РёРё С‚СЂР°РЅСЃРјСѓС‚Р°С†РёРё
 ]]
-anomalies = {} --серверные объекты аномалий
+anomalies = {} --СЃРµСЂРІРµСЂРЅС‹Рµ РѕР±СЉРµРєС‚С‹ Р°РЅРѕРјР°Р»РёР№
 local tmids = {"mosquito","gravi","mincer","zharka","witches","buzz"}
-local list_trans = {} --список ТМ из конфигов
-local list_comp = {} --список соответствий тидов аномалий с секциями ТМ
+local list_trans = {} --СЃРїРёСЃРѕРє РўРњ РёР· РєРѕРЅС„РёРіРѕРІ
+local list_comp = {} --СЃРїРёСЃРѕРє СЃРѕРѕС‚РІРµС‚СЃС‚РІРёР№ С‚РёРґРѕРІ Р°РЅРѕРјР°Р»РёР№ СЃ СЃРµРєС†РёСЏРјРё РўРњ
 for i = 1,#tmids do list_comp[i] = {} end
-local maxdist = 5 --максимальная дистанция для ТМ
-local maxdistsqr = maxdist * maxdist --используется квадрат максимальной дистанции
-local path_list = "misc\\transmutation.ltx" --путь до конфига
-local list_of_lists = "lists_trans" --имя главного списка в конфиге
+local maxdist = 5 --РјР°РєСЃРёРјР°Р»СЊРЅР°СЏ РґРёСЃС‚Р°РЅС†РёСЏ РґР»СЏ РўРњ
+local maxdistsqr = maxdist * maxdist --РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РєРІР°РґСЂР°С‚ РјР°РєСЃРёРјР°Р»СЊРЅРѕР№ РґРёСЃС‚Р°РЅС†РёРё
+local path_list = "misc\\transmutation.ltx" --РїСѓС‚СЊ РґРѕ РєРѕРЅС„РёРіР°
+local list_of_lists = "lists_trans" --РёРјСЏ РіР»Р°РІРЅРѕРіРѕ СЃРїРёСЃРєР° РІ РєРѕРЅС„РёРіРµ
 function get_list() return list_trans end
 function endspiel(sobj)
 	local data_trans = list_trans[sobj.tmsection]
@@ -103,7 +103,7 @@ end
 class "tm_window" (CUIScriptWnd)
 function tm_window:__init() super()
 	self:Init(0,0,1024,768)
-	self.state = true -- true - доступные, false - известные
+	self.state = true -- true - РґРѕСЃС‚СѓРїРЅС‹Рµ, false - РёР·РІРµСЃС‚РЅС‹Рµ
 	local xml = CScriptXmlInit()
   xml:ParseFile("ui_tm_window.xml")
 	
@@ -259,10 +259,10 @@ function get_list_tm(state,filters)
 			local list_tmsect_anom,i = list_comp[tmid],1
 			while list_tmsect_anom[i] do
 				local tmsect = list_tmsect_anom[i]
-				if not list_tmsect[tmsect] and --секция не залинкована
-				check_infos(tmsect) and --есть инфа
-				enow_arts(tmsect,inv_arts) then --есть все арты
-					list_tmsect[tmsect] = id_anom --линкуем секцию на ид аномалии
+				if not list_tmsect[tmsect] and --СЃРµРєС†РёСЏ РЅРµ Р·Р°Р»РёРЅРєРѕРІР°РЅР°
+				check_infos(tmsect) and --РµСЃС‚СЊ РёРЅС„Р°
+				enow_arts(tmsect,inv_arts) then --РµСЃС‚СЊ РІСЃРµ Р°СЂС‚С‹
+					list_tmsect[tmsect] = id_anom --Р»РёРЅРєСѓРµРј СЃРµРєС†РёСЋ РЅР° РёРґ Р°РЅРѕРјР°Р»РёРё
 				end
 				i = i + 1
 			end

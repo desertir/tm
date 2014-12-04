@@ -1,4 +1,4 @@
-local ammo = {}
+﻿local ammo = {}
 local inited = false
 local repack = false 
  

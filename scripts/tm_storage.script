@@ -1,11 +1,11 @@
---ввести ли порядковую часть хранилища? типа список, который не будет записывать ключи
---главное в том же порядке потом записать
+п»ї--РІРІРµСЃС‚Рё Р»Рё РїРѕСЂСЏРґРєРѕРІСѓСЋ С‡Р°СЃС‚СЊ С…СЂР°РЅРёР»РёС‰Р°? С‚РёРїР° СЃРїРёСЃРѕРє, РєРѕС‚РѕСЂС‹Р№ РЅРµ Р±СѓРґРµС‚ Р·Р°РїРёСЃС‹РІР°С‚СЊ РєР»СЋС‡Рё
+--РіР»Р°РІРЅРѕРµ РІ С‚РѕРј Р¶Рµ РїРѕСЂСЏРґРєРµ РїРѕС‚РѕРј Р·Р°РїРёСЃР°С‚СЊ
 
 local storage = {}
 storage.timers = {}
 local last_key
 local data_rec = true
-local limit = 8000 --предельное значение пакета (8192)
+local limit = 8000 --РїСЂРµРґРµР»СЊРЅРѕРµ Р·РЅР°С‡РµРЅРёРµ РїР°РєРµС‚Р° (8192)
 _G.add_data =
 function (key,data)
 	if key == nil or data == nil then return end
@@ -49,13 +49,13 @@ function save_data(obj,packet)
 	end
 	
 	repeat
-		count = count + 1 --запись
-		key,data = next(storage,key) --обновление линии
-		size = size + tm_pk.size_var(key) + tm_pk.size_var(data) --просчет места
+		count = count + 1 --Р·Р°РїРёСЃСЊ
+		key,data = next(storage,key) --РѕР±РЅРѕРІР»РµРЅРёРµ Р»РёРЅРёРё
+		size = size + tm_pk.size_var(key) + tm_pk.size_var(data) --РїСЂРѕСЃС‡РµС‚ РјРµСЃС‚Р°
 	until size > limit or key == nil
 	
 	packet:w_u16(count) -- +2
-	key = last_key --изза подсчета линий сбразываем ключ
+	key = last_key --РёР·Р·Р° РїРѕРґСЃС‡РµС‚Р° Р»РёРЅРёР№ СЃР±СЂР°Р·С‹РІР°РµРј РєР»СЋС‡
 	
 	for i = 1,count do
 		key,data = next(storage,key)
@@ -79,7 +79,7 @@ function load_data(obj,packet,size)
 		add_data(key,data)
 	end
 end
---парсинг пакета, когда то было интересно, что и как там внутри
+--РїР°СЂСЃРёРЅРі РїР°РєРµС‚Р°, РєРѕРіРґР° С‚Рѕ Р±С‹Р»Рѕ РёРЅС‚РµСЂРµСЃРЅРѕ, С‡С‚Рѕ Рё РєР°Рє С‚Р°Рј РІРЅСѓС‚СЂРё
 -------------------------------------------
 function num10tonum2(a,c)
 	local b = ""

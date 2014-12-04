@@ -1,7 +1,7 @@
--- Модуль: tm_modify_method.script (Transmutation mod)
--- Назначение: Модификация методов классов без непосредственной правки в модулях.
--- Автор: Desertir
--- Дата: 1.12.12
+п»ї-- РњРѕРґСѓР»СЊ: tm_modify_method.script (Transmutation mod)
+-- РќР°Р·РЅР°С‡РµРЅРёРµ: РњРѕРґРёС„РёРєР°С†РёСЏ РјРµС‚РѕРґРѕРІ РєР»Р°СЃСЃРѕРІ Р±РµР· РЅРµРїРѕСЃСЂРµРґСЃС‚РІРµРЅРЅРѕР№ РїСЂР°РІРєРё РІ РјРѕРґСѓР»СЏС….
+-- РђРІС‚РѕСЂ: Desertir
+-- Р”Р°С‚Р°: 1.12.12
 local function isnot_valid(nm,nc,nmt,nam,naf)
 	if     nm			== nil then pcon("TMM_1") return true
 	elseif nc			== nil then pcon(nm.."2") return true

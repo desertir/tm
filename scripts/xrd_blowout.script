@@ -1,6 +1,6 @@
--- Схема убегания в укрытия неписей
--- Подключение в modules и xr_logic
--- Автор: Desertir
+п»ї-- РЎС…РµРјР° СѓР±РµРіР°РЅРёСЏ РІ СѓРєСЂС‹С‚РёСЏ РЅРµРїРёСЃРµР№
+-- РџРѕРґРєР»СЋС‡РµРЅРёРµ РІ modules Рё xr_logic
+-- РђРІС‚РѕСЂ: Desertir
 
 ev_blow_is_blowout = 20000
 ev_blow_in_cover = ev_blow_is_blowout + 1
@@ -11,7 +11,7 @@ act_blow_go_cover = 20000
 act_blow_go_lv = act_blow_go_cover + 1
 act_blow_wait = act_blow_go_cover + 2
 
---укрытия
+--СѓРєСЂС‹С‚РёСЏ
 local covers = {}
 function fill_covers()
 	local ini = ini_file("misc\\covers.ltx")
@@ -33,7 +33,7 @@ function fill_covers()
 end
 
 --EVALUATORS
---если идет выброс, в укрытии ли мы?
+--РµСЃР»Рё РёРґРµС‚ РІС‹Р±СЂРѕСЃ, РІ СѓРєСЂС‹С‚РёРё Р»Рё РјС‹?
 class "evaluator_in_cover" (property_evaluator)
 function evaluator_in_cover:__init(name,storage) super(nil,name)
 	self.st = storage
@@ -41,7 +41,7 @@ end
 function evaluator_in_cover:evaluate()
 	return self.st.is_blowout and npc_in_cover(self.st)
 end
---если идет выброс, в нужной ли точке мы?
+--РµСЃР»Рё РёРґРµС‚ РІС‹Р±СЂРѕСЃ, РІ РЅСѓР¶РЅРѕР№ Р»Рё С‚РѕС‡РєРµ РјС‹?
 class "evaluator_in_lv" (property_evaluator)
 function evaluator_in_lv:__init(name,storage) super(nil,name)
 	self.st = storage
@@ -49,21 +49,21 @@ end
 function evaluator_in_lv:evaluate()
 	return self.st.is_blowout and (self.object:level_vertex_id() == self.st.wait_lv)
 end
---эвалуатор для выброса
+--СЌРІР°Р»СѓР°С‚РѕСЂ РґР»СЏ РІС‹Р±СЂРѕСЃР°
 class "evaluator_is_blow" (property_evaluator)
 function evaluator_is_blow:__init(name,storage) super(nil,name)
 	self.st = storage
 end
 function evaluator_is_blow:evaluate()
 	local blowout = has_alife_info("start_blowout")
-	if blowout ~= self.st.is_blowout then --состояние изменилось (либо начало либо конец)
-		if blowout then --если выброс начался
-			xr_kamp.kamp_stalkers[self.object:id()] = nil --камп - не камп, пофиг, обниляем чтоб мог говорить
+	if blowout ~= self.st.is_blowout then --СЃРѕСЃС‚РѕСЏРЅРёРµ РёР·РјРµРЅРёР»РѕСЃСЊ (Р»РёР±Рѕ РЅР°С‡Р°Р»Рѕ Р»РёР±Рѕ РєРѕРЅРµС†)
+		if blowout then --РµСЃР»Рё РІС‹Р±СЂРѕСЃ РЅР°С‡Р°Р»СЃСЏ
+			xr_kamp.kamp_stalkers[self.object:id()] = nil --РєР°РјРї - РЅРµ РєР°РјРї, РїРѕС„РёРі, РѕР±РЅРёР»СЏРµРј С‡С‚РѕР± РјРѕРі РіРѕРІРѕСЂРёС‚СЊ
 			local action = self.object:motivation_action_manager():current_action()
-			action:add_precondition(world_property(ev_blow_is_blowout,false)) --затыкаем текущий экшен
+			action:add_precondition(world_property(ev_blow_is_blowout,false)) --Р·Р°С‚С‹РєР°РµРј С‚РµРєСѓС‰РёР№ СЌРєС€РµРЅ
 			self.st.last_action = action
-		else --если это конец выброса
-			self.st.last_action:remove_precondition(ev_blow_is_blowout) --убираем затычку
+		else --РµСЃР»Рё СЌС‚Рѕ РєРѕРЅРµС† РІС‹Р±СЂРѕСЃР°
+			self.st.last_action:remove_precondition(ev_blow_is_blowout) --СѓР±РёСЂР°РµРј Р·Р°С‚С‹С‡РєСѓ
 		end
 		self.st.is_blowout = blowout
 	end
@@ -71,7 +71,7 @@ function evaluator_is_blow:evaluate()
 end
 
 --ACTIONS
---идем в укрытие
+--РёРґРµРј РІ СѓРєСЂС‹С‚РёРµ
 class "action_go_cover" (action_base)
 function action_go_cover:__init (action_name,storage) super (nil,action_name)
 	self.st = storage
@@ -83,10 +83,10 @@ function action_go_cover:initialize()
 	--self.object:set_desired_direction()
 	xr_sound.set_sound(self.object,nil)
 	stop_play_sound(self.object)
-	--экшен начался, значит один из флагов или оба тру, передаем флаг выброса
+	--СЌРєС€РµРЅ РЅР°С‡Р°Р»СЃСЏ, Р·РЅР°С‡РёС‚ РѕРґРёРЅ РёР· С„Р»Р°РіРѕРІ РёР»Рё РѕР±Р° С‚СЂСѓ, РїРµСЂРµРґР°РµРј С„Р»Р°Рі РІС‹Р±СЂРѕСЃР°
 	self.st.look_lv,self.st.wait_lv = get_cover_lv(self.st)
 	self.st.llv_point = level.vertex_position(self.st.look_lv)
-	self:execute() --ставим состояние
+	self:execute() --СЃС‚Р°РІРёРј СЃРѕСЃС‚РѕСЏРЅРёРµ
 	--pcon("cover_name [%s]; look_lv [%s]; llv_point [x:%s,y:%s,z:%s]",self.st.cover_name,self.st.look_lv,self.st.llv_point.x,self.st.llv_point.y,self.st.llv_point.z)
 	-- if not self.object:accessible(self.st.wait_lv) then
 		-- self.st.wait_lv = self.object:accessible_nearest(level.vertex_position(self.st.wait_lv),vector():set(0,0,0))
@@ -115,7 +115,7 @@ end
 function action_go_cover:finalize()
 	action_base.finalize(self)
 end
---идем на нужный лв
+--РёРґРµРј РЅР° РЅСѓР¶РЅС‹Р№ Р»РІ
 class "action_go_lv" (action_base)
 function action_go_lv:__init (action_name,storage) super (nil,action_name)
 	self.st = storage
@@ -141,7 +141,7 @@ end
 function action_go_lv:finalize()
 	action_base.finalize(self)
 end
---сидим и ждем
+--СЃРёРґРёРј Рё Р¶РґРµРј
 class "action_blow_wait" (action_base)
 function action_blow_wait:__init (action_name,storage) super (nil,action_name)
 	self.a = storage
@@ -171,7 +171,7 @@ function set_scheme(npc,ini,section)
 	else
 		st = db.storage[npc_id].blowout
 	end
-	-- нужно прочесть флаги (это типа начало игры)?
+	-- РЅСѓР¶РЅРѕ РїСЂРѕС‡РµСЃС‚СЊ С„Р»Р°РіРё (СЌС‚Рѕ С‚РёРїР° РЅР°С‡Р°Р»Рѕ РёРіСЂС‹)?
 	reset_blow_scheme(st,ini,section)
 end
 
@@ -203,9 +203,9 @@ function add_to_binder(st)
 	manager:add_evaluator(ev_blow_is_blowout,this.evaluator_is_blow("blow_begin",st))
 	manager:add_evaluator(ev_blow_in_cover,this.evaluator_in_cover("blow_in_cover",st))
 	manager:add_evaluator(ev_blow_in_lv,this.evaluator_in_lv("blow_in_lv",st))
-	--manager:add_evaluator(ev_blow_fake,property_evaluator_const(false)) --затычка
+	--manager:add_evaluator(ev_blow_fake,property_evaluator_const(false)) --Р·Р°С‚С‹С‡РєР°
 	
---идем к убежищу
+--РёРґРµРј Рє СѓР±РµР¶РёС‰Сѓ
 	action = this.action_go_cover("blow_go_cover",st)
 	
 	action:add_precondition(world_property(ev_blow_is_blowout,true))
@@ -214,7 +214,7 @@ function add_to_binder(st)
 	
 	manager:add_action(act_blow_go_cover,action)
 	
---идем к точке
+--РёРґРµРј Рє С‚РѕС‡РєРµ
 	action = this.action_go_lv("blow_go_lv",st)
 	
 	--action:add_precondition(world_property(ev_blow_is_blowout,true))
@@ -224,7 +224,7 @@ function add_to_binder(st)
 	
 	manager:add_action(act_blow_go_lv,action)
 	
---ждем
+--Р¶РґРµРј
 	action = this.action_blow_wait("blow_wait",st)
 	--action:add_precondition(world_property(ev_blow_is_blowout,true))
 	--action:add_precondition(world_property(ev_blow_in_cover,true))
@@ -248,9 +248,9 @@ function addCommonPrecondition(action)
 end
 
 function npc_in_cover(st)
-	if st.cover_name == "" then --логики нету, находим ближайшее укрытие
+	if st.cover_name == "" then --Р»РѕРіРёРєРё РЅРµС‚Сѓ, РЅР°С…РѕРґРёРј Р±Р»РёР¶Р°Р№С€РµРµ СѓРєСЂС‹С‚РёРµ
 		local available_covers = covers[level.name()][st.npc:character_community()]
-		if available_covers == nil then --упс, укрытий нету, неписю каюк *_*
+		if available_covers == nil then --СѓРїСЃ, СѓРєСЂС‹С‚РёР№ РЅРµС‚Сѓ, РЅРµРїРёСЃСЋ РєР°СЋРє *_*
 			return false
 		end
 		st.cover_name = get_near_cover_name(st.npc,available_covers)

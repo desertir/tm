@@ -1,3 +1,3 @@
-function start_npwnd()
-	tm_utils.give_mess("Открытие блокнота")
+п»їfunction start_npwnd()
+	tm_utils.give_mess("РћС‚РєСЂС‹С‚РёРµ Р±Р»РѕРєРЅРѕС‚Р°")
 end

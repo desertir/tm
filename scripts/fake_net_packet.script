@@ -1,4 +1,4 @@
-class "fake_net_packet"
+﻿class "fake_net_packet"
 
 function fake_net_packet:__init()
   self.size=0

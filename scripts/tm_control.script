@@ -1,4 +1,4 @@
-local con = get_console()
+﻿local con = get_console()
 local name = "mm_net_player_name"
 local def_val = "nil" --con:get_string(name)
 local reset = name.." "..def_val

@@ -1,4 +1,4 @@
-
+п»ї
 function readvu32u8(packet)
   local v={}
   local len=packet:r_s32()
@@ -109,7 +109,7 @@ function parse_creature_packet(ret,stpk,updpk)
   ret.updhealth=updpk:r_float()
   ret.upds32u1=updpk:r_s32()
   ret.updu8u2=updpk:r_u8()
-  ret.updpos={} -- или поставить вектор? ладно потом
+  ret.updpos={} -- РёР»Рё РїРѕСЃС‚Р°РІРёС‚СЊ РІРµРєС‚РѕСЂ? Р»Р°РґРЅРѕ РїРѕС‚РѕРј
   ret.updpos.x=updpk:r_float()
   ret.updpos.y=updpk:r_float()
   ret.updpos.z=updpk:r_float()
@@ -318,7 +318,7 @@ function read_monster_params(sobj)
   return tbl
 end
 
--- таблица параметров и серверный объект на входе
+-- С‚Р°Р±Р»РёС†Р° РїР°СЂР°РјРµС‚СЂРѕРІ Рё СЃРµСЂРІРµСЂРЅС‹Р№ РѕР±СЉРµРєС‚ РЅР° РІС…РѕРґРµ
 function write_stalker_params(tbl,sobj)
   local stpk=net_packet()
   local uppk=net_packet()
@@ -909,7 +909,7 @@ function quotemeta(str)
 	return (string.gsub(s, "[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%1"))
 end
 
---для правильного парсинга запрещены комментарии!!!
+--РґР»СЏ РїСЂР°РІРёР»СЊРЅРѕРіРѕ РїР°СЂСЃРёРЅРіР° Р·Р°РїСЂРµС‰РµРЅС‹ РєРѕРјРјРµРЅС‚Р°СЂРёРё!!!
 function parse_custom_data(str)
 	local t={}
 	if str then

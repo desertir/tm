@@ -1,4 +1,4 @@
-function spawn_anom()
+﻿function spawn_anom()
 	tm_utils.create_anom({
 	section = "zone_mincer_weak",
 	level_vertex = level.vertex_in_direction(db.actor:level_vertex_id(),db.actor:direction(),5),

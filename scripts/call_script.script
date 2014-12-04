@@ -1,4 +1,4 @@
-function start_window(s)
+﻿function start_window(s)
 	c_window(s):open_close()
 end
 
